@@ -1,0 +1,126 @@
+{
+  "providers": {
+    "EnergyAustralia": {
+      "provider_name": "EnergyAustralia",
+      "service_type": "Electricity",
+      "email_patterns": {
+        "from": [
+          "noreply@energyaustralia.com.au",
+          "bills@energyaustralia.com.au",
+          "energyaustralia.com.au"
+        ],
+        "subject_keywords": [
+          "bill",
+          "invoice",
+          "statement",
+          "energy bill",
+          "electricity bill"
+        ],
+        "attachment_types": [".pdf"],
+        "exclude_keywords": ["marketing", "newsletter", "promotional"]
+      },
+      "parsing_config": {
+        "template": "energy_australia_template",
+        "backup_ocr": true,
+        "validation_rules": {
+          "amount_range": [50, 2000],
+          "usage_range": [200, 8000],
+          "required_fields": ["invoice_date", "total_amount", "usage_quantity"]
+        }
+      },
+      "processing_options": {
+        "priority": "high",
+        "auto_validate": true,
+        "notify_on_error": true
+      }
+    },
+    "Origin": {
+      "provider_name": "Origin Energy",
+      "service_type": "Gas",
+      "email_patterns": {
+        "from": [
+          "noreply@originenergy.com.au",
+          "bills@originenergy.com.au",
+          "origin.com.au"
+        ],
+        "subject_keywords": [
+          "gas bill",
+          "bill",
+          "invoice",
+          "statement",
+          "natural gas"
+        ],
+        "attachment_types": [".pdf"],
+        "exclude_keywords": ["marketing", "newsletter", "offer"]
+      },
+      "parsing_config": {
+        "template": "origin_gas_template",
+        "backup_ocr": true,
+        "validation_rules": {
+          "amount_range": [30, 800],
+          "usage_range": [0, 2000],
+          "required_fields": ["invoice_date", "total_amount"]
+        }
+      },
+      "processing_options": {
+        "priority": "medium",
+        "auto_validate": true,
+        "notify_on_error": true
+      }
+    },
+    "Sydney_Water": {
+      "provider_name": "Sydney Water",
+      "service_type": "Water",
+      "email_patterns": {
+        "from": [
+          "noreply@sydneywater.com.au",
+          "bills@sydneywater.com.au",
+          "sydneywater.com.au"
+        ],
+        "subject_keywords": [
+          "water bill",
+          "water rates",
+          "bill",
+          "invoice",
+          "statement"
+        ],
+        "attachment_types": [".pdf"],
+        "exclude_keywords": ["newsletter", "maintenance", "notice"]
+      },
+      "parsing_config": {
+        "template": "sydney_water_template",
+        "backup_ocr": true,
+        "validation_rules": {
+          "amount_range": [40, 1200],
+          "usage_range": [0, 1000],
+          "required_fields": ["invoice_date", "total_amount", "usage_quantity"]
+        }
+      },
+      "processing_options": {
+        "priority": "medium",
+        "auto_validate": true,
+        "notify_on_error": false
+      }
+    }
+  },
+  "global_settings": {
+    "search_configuration": {
+      "date_range_days": 90,
+      "max_results_per_provider": 50,
+      "include_read_emails": true,
+      "search_in_folders": ["INBOX", "Bills", "Utilities"]
+    },
+    "processing_rules": {
+      "skip_duplicates": true,
+      "validate_before_storage": true,
+      "backup_original_pdfs": true,
+      "generate_thumbnails": false
+    },
+    "notification_settings": {
+      "email_on_completion": false,
+      "email_on_errors": true,
+      "webhook_url": null,
+      "slack_integration": false
+    }
+  }
+}

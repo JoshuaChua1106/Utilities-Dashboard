@@ -1,0 +1,115 @@
+{
+  "provider": "EnergyAustralia",
+  "service_type": "Electricity",
+  "version": "1.0",
+  "patterns": {
+    "invoice_date": {
+      "regex": [
+        "Invoice Date:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "Bill Date:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "Date:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})"
+      ],
+      "format": "%d/%m/%Y",
+      "required": true
+    },
+    "total_amount": {
+      "regex": [
+        "Total Amount Due:\\s*\\$([\\d,]+\\.\\d{2})",
+        "Amount Due:\\s*\\$([\\d,]+\\.\\d{2})",
+        "Total:\\s*\\$([\\d,]+\\.\\d{2})"
+      ],
+      "type": "decimal",
+      "required": true,
+      "validation": {
+        "min": 10.0,
+        "max": 2000.0
+      }
+    },
+    "usage_quantity": {
+      "regex": [
+        "Total Usage:\\s*([\\d,]+\\.?\\d*)\\s*kWh",
+        "kWh Used:\\s*([\\d,]+\\.?\\d*)",
+        "Electricity Usage:\\s*([\\d,]+\\.?\\d*)\\s*kWh"
+      ],
+      "type": "decimal",
+      "unit": "kWh",
+      "required": true,
+      "validation": {
+        "min": 0,
+        "max": 10000
+      }
+    },
+    "usage_rate": {
+      "regex": [
+        "Rate:\\s*\\$([\\d.]+)\\s*per kWh",
+        "Unit Rate:\\s*\\$([\\d.]+)",
+        "Price per kWh:\\s*\\$([\\d.]+)"
+      ],
+      "type": "decimal",
+      "unit": "$/kWh",
+      "required": false
+    },
+    "service_charge": {
+      "regex": [
+        "Service Charge:\\s*\\$([\\d.]+)",
+        "Daily Supply Charge:\\s*\\$([\\d.]+)",
+        "Connection Fee:\\s*\\$([\\d.]+)"
+      ],
+      "type": "decimal",
+      "required": false
+    },
+    "billing_period_start": {
+      "regex": [
+        "Period:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})\\s*to",
+        "From:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "Bill Period:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})"
+      ],
+      "format": "%d/%m/%Y",
+      "required": false
+    },
+    "billing_period_end": {
+      "regex": [
+        "to\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "To:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "Period End:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})"
+      ],
+      "format": "%d/%m/%Y",
+      "required": false
+    },
+    "account_number": {
+      "regex": [
+        "Account Number:\\s*([\\d-]+)",
+        "Account:\\s*([\\d-]+)",
+        "A/C:\\s*([\\d-]+)"
+      ],
+      "type": "string",
+      "required": false
+    }
+  },
+  "post_processing": {
+    "amount_multiplier": 1.0,
+    "date_format": "%d/%m/%Y",
+    "currency_symbol": "$",
+    "round_decimals": 2,
+    "validation_rules": {
+      "amount_usage_correlation": true,
+      "date_sequence_check": true,
+      "reasonable_rates_check": true
+    }
+  },
+  "ocr_settings": {
+    "preprocessing": {
+      "enhance_contrast": true,
+      "remove_noise": true,
+      "deskew": true
+    },
+    "fallback_engines": ["pytesseract", "pdfplumber"],
+    "confidence_threshold": 0.7,
+    "manual_review_threshold": 0.5
+  },
+  "debugging": {
+    "save_preprocessed_images": false,
+    "log_regex_matches": true,
+    "export_text_extraction": false
+  }
+}

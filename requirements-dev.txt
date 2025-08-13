@@ -1,0 +1,21 @@
+# Development Dependencies
+-r requirements.txt
+
+# Additional Development Tools
+pre-commit==3.5.0
+bandit==1.7.5
+safety==2.3.5
+coverage==7.3.2
+jupyter==1.0.0
+ipython==8.18.1
+
+# Documentation
+mkdocs==1.5.3
+mkdocs-material==9.4.8
+
+# Performance Profiling
+memory-profiler==0.61.0
+line-profiler==4.1.1
+
+# Database Tools
+alembic==1.13.0  # For database migrations

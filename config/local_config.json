@@ -1,0 +1,48 @@
+{
+  "environment": "local",
+  "database": {
+    "type": "sqlite",
+    "path": "./data/invoices.db",
+    "backup_path": "./data/backups/",
+    "connection_timeout": 30
+  },
+  "storage": {
+    "type": "filesystem",
+    "base_path": "./data/invoices/",
+    "processed_path": "./data/processed/",
+    "backup_path": "./data/backups/",
+    "max_file_size_mb": 10
+  },
+  "ocr": {
+    "type": "local",
+    "engines": ["pdfplumber", "pytesseract"],
+    "fallback_enabled": true,
+    "quality_threshold": 0.7
+  },
+  "email": {
+    "batch_size": 5,
+    "max_results": 50,
+    "search_days": 90,
+    "retry_attempts": 3,
+    "retry_delay": 5
+  },
+  "processing": {
+    "parallel_workers": 2,
+    "timeout_seconds": 60,
+    "validation_enabled": true,
+    "duplicate_check": true
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "./logs/utilities-tracker.log",
+    "max_size_mb": 10,
+    "backup_count": 5,
+    "console_output": true
+  },
+  "web_app": {
+    "host": "localhost",
+    "port": 5000,
+    "debug": true,
+    "auto_reload": true
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "environment": "aws",
+  "database": {
+    "type": "postgresql",
+    "endpoint": "{{resolve:ssm:/utilities-tracker/rds-endpoint}}",
+    "database": "utilities_tracker",
+    "username": "postgres",
+    "password_secret": "{{resolve:secretsmanager:utilities-tracker/rds-password}}",
+    "connection_pool_size": 20,
+    "connection_timeout": 30
+  },
+  "storage": {
+    "type": "s3",
+    "bucket": "{{resolve:ssm:/utilities-tracker/s3-bucket}}",
+    "region": "{{resolve:ssm:/utilities-tracker/aws-region}}",
+    "prefix": "invoices/",
+    "processed_prefix": "processed/",
+    "backup_prefix": "backups/",
+    "server_side_encryption": "aws:kms",
+    "kms_key": "{{resolve:ssm:/utilities-tracker/kms-key-id}}"
+  },
+  "ocr": {
+    "type": "textract",
+    "region": "{{resolve:ssm:/utilities-tracker/aws-region}}",
+    "confidence_threshold": 0.8,
+    "async_processing": true
+  },
+  "email": {
+    "batch_size": 20,
+    "max_results": 200,
+    "search_days": 365,
+    "retry_attempts": 5,
+    "retry_delay": 10,
+    "parallel_processing": true
+  },
+  "processing": {
+    "lambda_timeout": 900,
+    "memory_size": 3008,
+    "batch_size": 50,
+    "dead_letter_queue": true,
+    "x_ray_tracing": true
+  },
+  "logging": {
+    "level": "INFO",
+    "cloudwatch_log_group": "/aws/lambda/utilities-tracker",
+    "log_retention_days": 30,
+    "structured_logging": true,
+    "x_ray_enabled": true
+  },
+  "monitoring": {
+    "cloudwatch_dashboard": true,
+    "custom_metrics": true,
+    "alarms_enabled": true,
+    "sns_topic": "{{resolve:ssm:/utilities-tracker/sns-topic-arn}}"
+  },
+  "security": {
+    "vpc_enabled": true,
+    "security_groups": ["{{resolve:ssm:/utilities-tracker/security-group-id}}"],
+    "subnets": ["{{resolve:ssm:/utilities-tracker/private-subnet-1}}", "{{resolve:ssm:/utilities-tracker/private-subnet-2}}"],
+    "waf_enabled": true,
+    "encryption_at_rest": true,
+    "encryption_in_transit": true
+  }
+}

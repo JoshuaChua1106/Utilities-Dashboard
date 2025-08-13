@@ -1,0 +1,100 @@
+{
+  "provider": "Sydney Water",
+  "service_type": "Water",
+  "version": "1.0",
+  "patterns": {
+    "invoice_date": {
+      "regex": [
+        "Issue Date:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "Bill Date:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "Date:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})"
+      ],
+      "format": "%d/%m/%Y",
+      "required": true
+    },
+    "total_amount": {
+      "regex": [
+        "Total Amount:\\s*\\$([\\d,]+\\.\\d{2})",
+        "Amount Payable:\\s*\\$([\\d,]+\\.\\d{2})",
+        "Total Due:\\s*\\$([\\d,]+\\.\\d{2})"
+      ],
+      "type": "decimal",
+      "required": true,
+      "validation": {
+        "min": 30.0,
+        "max": 1200.0
+      }
+    },
+    "usage_quantity": {
+      "regex": [
+        "Water Usage:\\s*([\\d,]+\\.?\\d*)\\s*kL",
+        "Total Usage:\\s*([\\d,]+\\.?\\d*)\\s*kL",
+        "kL Used:\\s*([\\d,]+\\.?\\d*)"
+      ],
+      "type": "decimal",
+      "unit": "kL",
+      "required": true,
+      "validation": {
+        "min": 0,
+        "max": 1000
+      }
+    },
+    "usage_rate": {
+      "regex": [
+        "Water Rate:\\s*\\$([\\d.]+)\\s*per kL",
+        "Unit Rate:\\s*\\$([\\d.]+)",
+        "Price per kL:\\s*\\$([\\d.]+)"
+      ],
+      "type": "decimal",
+      "unit": "$/kL",
+      "required": false
+    },
+    "service_charge": {
+      "regex": [
+        "Service Charge:\\s*\\$([\\d.]+)",
+        "Access Charge:\\s*\\$([\\d.]+)",
+        "Fixed Charge:\\s*\\$([\\d.]+)"
+      ],
+      "type": "decimal",
+      "required": false
+    },
+    "billing_period_start": {
+      "regex": [
+        "Period:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})\\s*to",
+        "From:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "Reading Period:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})"
+      ],
+      "format": "%d/%m/%Y",
+      "required": false
+    },
+    "billing_period_end": {
+      "regex": [
+        "to\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "To:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "End:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})"
+      ],
+      "format": "%d/%m/%Y",
+      "required": false
+    }
+  },
+  "post_processing": {
+    "amount_multiplier": 1.0,
+    "date_format": "%d/%m/%Y",
+    "currency_symbol": "$",
+    "round_decimals": 2,
+    "convert_units": {
+      "from": "kL",
+      "to": "L",
+      "conversion_factor": 1000
+    }
+  },
+  "ocr_settings": {
+    "preprocessing": {
+      "enhance_contrast": true,
+      "remove_noise": true,
+      "deskew": false
+    },
+    "fallback_engines": ["pdfplumber", "pytesseract"],
+    "confidence_threshold": 0.65
+  }
+}

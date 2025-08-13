@@ -1,0 +1,100 @@
+{
+  "provider": "Origin Energy",
+  "service_type": "Gas",
+  "version": "1.0",
+  "patterns": {
+    "invoice_date": {
+      "regex": [
+        "Invoice Date:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "Bill Date:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "Date Issued:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})"
+      ],
+      "format": "%d/%m/%Y",
+      "required": true
+    },
+    "total_amount": {
+      "regex": [
+        "Total Amount:\\s*\\$([\\d,]+\\.\\d{2})",
+        "Amount Due:\\s*\\$([\\d,]+\\.\\d{2})",
+        "Total Due:\\s*\\$([\\d,]+\\.\\d{2})"
+      ],
+      "type": "decimal",
+      "required": true,
+      "validation": {
+        "min": 20.0,
+        "max": 800.0
+      }
+    },
+    "usage_quantity": {
+      "regex": [
+        "Gas Usage:\\s*([\\d,]+\\.?\\d*)\\s*MJ",
+        "Total Usage:\\s*([\\d,]+\\.?\\d*)\\s*MJ",
+        "MJ Used:\\s*([\\d,]+\\.?\\d*)"
+      ],
+      "type": "decimal",
+      "unit": "MJ",
+      "required": true,
+      "validation": {
+        "min": 0,
+        "max": 5000
+      }
+    },
+    "usage_rate": {
+      "regex": [
+        "Rate:\\s*\\$([\\d.]+)\\s*per MJ",
+        "Unit Rate:\\s*\\$([\\d.]+)",
+        "Price per MJ:\\s*\\$([\\d.]+)"
+      ],
+      "type": "decimal",
+      "unit": "$/MJ",
+      "required": false
+    },
+    "service_charge": {
+      "regex": [
+        "Service Charge:\\s*\\$([\\d.]+)",
+        "Daily Charge:\\s*\\$([\\d.]+)",
+        "Supply Charge:\\s*\\$([\\d.]+)"
+      ],
+      "type": "decimal",
+      "required": false
+    },
+    "billing_period_start": {
+      "regex": [
+        "Billing Period:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})\\s*to",
+        "From:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "Period:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})"
+      ],
+      "format": "%d/%m/%Y",
+      "required": false
+    },
+    "billing_period_end": {
+      "regex": [
+        "to\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "To:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})",
+        "End Date:\\s*(\\d{1,2}/\\d{1,2}/\\d{4})"
+      ],
+      "format": "%d/%m/%Y",
+      "required": false
+    }
+  },
+  "post_processing": {
+    "amount_multiplier": 1.0,
+    "date_format": "%d/%m/%Y",
+    "currency_symbol": "$",
+    "round_decimals": 2,
+    "convert_units": {
+      "from": "MJ",
+      "to": "m³",
+      "conversion_factor": 0.0278
+    }
+  },
+  "ocr_settings": {
+    "preprocessing": {
+      "enhance_contrast": true,
+      "remove_noise": false,
+      "deskew": true
+    },
+    "fallback_engines": ["pdfplumber", "pytesseract"],
+    "confidence_threshold": 0.6
+  }
+}

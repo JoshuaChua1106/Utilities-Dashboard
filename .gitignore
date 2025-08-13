@@ -1,0 +1,134 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# Environment Files
+.env
+.env.local
+.env.production
+.env.staging
+
+# Sensitive Configuration Files
+config/credentials.json
+config/providers.json
+config/oauth_tokens.json
+
+# Data Files
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Temporary Files
+tmp/
+temp/
+.tmp/
+
+# IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# AWS Files
+.aws/
+aws-exports.js
+amplify/
+.amplify/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Testing
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+.nyc_output/
+coverage/
+
+# Documentation
+docs/_build/
+.readthedocs.yml
+
+# Package files
+*.tar.gz
+*.zip
+
+# Local development files
+local_test_*
+debug_*
+sample_invoices/
+test_pdfs/
+
+# Power BI Files (except templates)
+*.pbix
+!powerbi_dashboard/templates/*.pbix
+
+# Backup files
+*.bak
+*.backup
+
+# Node.js (if using for frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# CDK
+cdk.out/
+*.js.map
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Local scripts
+run_local.sh
+debug.py
+test_local.py
