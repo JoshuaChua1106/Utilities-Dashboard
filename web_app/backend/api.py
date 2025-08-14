@@ -17,6 +17,19 @@ from sqlalchemy.orm import Session
 
 from .models import db_manager, Invoice, ProcessingHistory
 
+# Import integration services
+try:
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).parent.parent.parent))
+    from data_storage.integration_service import IntegrationService
+    from email_fetcher.email_service import EmailService
+    from pdf_parser.pdf_service import PDFService
+    INTEGRATION_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Integration services not available: {e}")
+    INTEGRATION_AVAILABLE = False
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -392,3 +405,184 @@ def method_not_allowed(error):
 def bad_request(error):
     """Handle 400 errors."""
     return jsonify({'error': 'Bad request'}), 400
+
+
+# New Integration Endpoints
+
+@api_bp.route('/system/status', methods=['GET'])
+def get_system_status():
+    """Get comprehensive system status including all services."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({
+            'error': 'Integration services not available',
+            'basic_health': 'API running but email/PDF services not loaded'
+        }), 503
+    
+    try:
+        integration_service = IntegrationService()
+        status = integration_service.get_system_status()
+        
+        return jsonify(status)
+        
+    except Exception as e:
+        logger.error(f"Error getting system status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/sync/full', methods=['POST'])
+def run_full_sync():
+    """Run complete email fetch and PDF parsing pipeline."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        provider = data.get('provider')
+        days_back = data.get('days_back', 7)
+        
+        integration_service = IntegrationService()
+        result = integration_service.run_full_sync(provider, days_back)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error running full sync: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/sync/email-only', methods=['POST'])
+def run_email_sync():
+    """Run email fetch without PDF parsing."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        provider = data.get('provider')
+        days_back = data.get('days_back', 7)
+        
+        integration_service = IntegrationService()
+        result = integration_service.run_email_sync_only(provider, days_back)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error running email sync: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/sync/pdf-only', methods=['POST'])
+def run_pdf_parsing():
+    """Parse existing PDFs without fetching new emails."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        provider = data.get('provider')
+        
+        integration_service = IntegrationService()
+        result = integration_service.run_pdf_parsing_only(provider)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error running PDF parsing: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/sync/history', methods=['GET'])
+def get_sync_history():
+    """Get batch operation history."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        limit = int(request.args.get('limit', 20))
+        
+        integration_service = IntegrationService()
+        history = integration_service.get_sync_history(limit)
+        
+        return jsonify({'history': history})
+        
+    except Exception as e:
+        logger.error(f"Error getting sync history: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/email/status', methods=['GET'])
+def get_email_status():
+    """Get email service authentication status."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        email_service = EmailService()
+        status = email_service.get_service_status()
+        
+        return jsonify(status)
+        
+    except Exception as e:
+        logger.error(f"Error getting email status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/pdf/statistics', methods=['GET'])
+def get_pdf_statistics():
+    """Get PDF processing statistics."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        pdf_service = PDFService()
+        stats = pdf_service.get_processing_statistics()
+        
+        return jsonify(stats)
+        
+    except Exception as e:
+        logger.error(f"Error getting PDF statistics: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/pdf/reprocess', methods=['POST'])
+def reprocess_failed_pdfs():
+    """Reprocess PDFs that previously failed."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        provider = data.get('provider')
+        
+        pdf_service = PDFService()
+        result = pdf_service.reprocess_failed_pdfs(provider)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error reprocessing PDFs: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/templates/test', methods=['POST'])
+def test_template():
+    """Test a parsing template with sample PDF."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        data = request.get_json()
+        if not data or 'provider' not in data or 'pdf_path' not in data:
+            return jsonify({'error': 'provider and pdf_path required'}), 400
+        
+        provider = data['provider']
+        pdf_path = data['pdf_path']
+        
+        pdf_service = PDFService()
+        result = pdf_service.test_template_with_sample(provider, pdf_path)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error testing template: {e}")
+        return jsonify({'error': str(e)}), 500
