@@ -87,8 +87,8 @@
             </div>
 
             <!-- KPI Cards -->
-            <div class="row mb-4">
-                <div class="col-lg-2 col-md-4 col-sm-6">
+            <div class="d-flex flex-wrap justify-content-between mb-4">
+                <div class="kpi-card">
                     <div class="card bg-primary text-white">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
@@ -101,7 +101,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-2 col-md-4 col-sm-6">
+                <div class="kpi-card">
                     <div class="card bg-success text-white">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
@@ -114,7 +114,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-2 col-md-4 col-sm-6">
+                <div class="kpi-card">
                     <div class="card bg-info text-white">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
@@ -127,7 +127,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-2 col-md-4 col-sm-6">
+                <div class="kpi-card">
                     <div class="card bg-warning text-white">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
@@ -140,7 +140,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-2 col-md-4 col-sm-6">
+                <div class="kpi-card">
                     <div class="card bg-secondary text-white">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
@@ -163,7 +163,7 @@
                             <h5><i class="bi bi-graph-up"></i> Spending Trends</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="trendsChart" height="100"></canvas>
+                            <canvas id="trendsChart" height="250"></canvas>
                         </div>
                     </div>
                 </div>
@@ -243,6 +243,9 @@
                             <button class="btn btn-outline-secondary ms-2" onclick="clearFilters()">
                                 <i class="bi bi-x-circle"></i> Clear
                             </button>
+                            <button class="btn btn-success ms-2" onclick="exportInvoicesCSV()">
+                                <i class="bi bi-download"></i> Export CSV
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -268,38 +271,154 @@
             <div class="row mb-4">
                 <div class="col">
                     <h2><i class="bi bi-graph-up"></i> Analytics</h2>
-                    <p class="text-muted">Detailed analysis of your utility usage and spending</p>
+                    <p class="text-muted">Detailed analysis of your utility usage, spending, rates, and service fees</p>
                 </div>
             </div>
 
-            <!-- Analytics Charts -->
+            <!-- Analytics Filters -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6><i class="bi bi-funnel"></i> Analysis Filters</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">Service Type</label>
+                            <select id="analyticsServiceFilter" class="form-select" onchange="updateAnalytics()">
+                                <option value="">All Services</option>
+                                <option value="Electricity">⚡ Electricity</option>
+                                <option value="Gas">🔥 Gas</option>
+                                <option value="Water">💧 Water</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Time Period</label>
+                            <select id="analyticsTimeFilter" class="form-select" onchange="updateAnalytics()">
+                                <option value="12">Last 12 months</option>
+                                <option value="6">Last 6 months</option>
+                                <option value="3">Last 3 months</option>
+                                <option value="24">Last 24 months</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Analysis Type</label>
+                            <select id="analyticsTypeFilter" class="form-select" onchange="updateAnalytics()">
+                                <option value="spending">💰 Spending Analysis</option>
+                                <option value="usage">📊 Usage Analysis</option>
+                                <option value="rates">📈 Rate Analysis</option>
+                                <option value="service_fees">⚙️ Service Fee Analysis</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Trend Chart -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 id="mainChartTitle"><i class="bi bi-bar-chart-line"></i> Monthly Spending Trends - All Services</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <input type="radio" class="btn-check" name="chartType" id="lineChart" autocomplete="off" checked>
+                        <label class="btn btn-outline-primary" for="lineChart">Line</label>
+                        <input type="radio" class="btn-check" name="chartType" id="barChart" autocomplete="off">
+                        <label class="btn btn-outline-primary" for="barChart">Bar</label>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="mainAnalyticsChart" height="300"></canvas>
+                </div>
+            </div>
+
+            <!-- Service Breakdown Charts -->
+            <div class="row mb-4">
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="bi bi-lightning-charge text-warning"></i> Electricity Trends</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="electricityTrendChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="bi bi-fire text-danger"></i> Gas Trends</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="gasTrendChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="bi bi-droplet text-primary"></i> Water Trends</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="waterTrendChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparative Analysis -->
             <div class="row mb-4">
                 <div class="col-lg-6">
                     <div class="card">
                         <div class="card-header">
-                            <h5><i class="bi bi-bar-chart-line"></i> Monthly Spending Trends</h5>
+                            <h6><i class="bi bi-speedometer2"></i> Rate Comparison</h6>
                         </div>
                         <div class="card-body">
-                            <canvas id="monthlyChart" height="150"></canvas>
+                            <canvas id="rateComparisonChart" height="200"></canvas>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-6">
                     <div class="card">
                         <div class="card-header">
-                            <h5><i class="bi bi-pie-chart-fill"></i> Provider Comparison</h5>
+                            <h6><i class="bi bi-gear"></i> Service Fee Trends</h6>
                         </div>
                         <div class="card-body">
-                            <canvas id="providerChart" height="150"></canvas>
+                            <canvas id="serviceFeeChart" height="200"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Statistics Table -->
+            <!-- Advanced Statistics -->
+            <div class="row mb-4">
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="bi bi-table"></i> Service Statistics</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="serviceStats" class="table-responsive">
+                                <!-- Service statistics will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="bi bi-calculator"></i> Cost Breakdown Analysis</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="costBreakdown">
+                                <!-- Cost breakdown will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Provider Performance Table -->
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="bi bi-table"></i> Provider Statistics</h5>
+                    <h5><i class="bi bi-building"></i> Provider Performance Analysis</h5>
                 </div>
                 <div class="card-body">
                     <div id="providerStats" class="table-responsive">
@@ -328,6 +447,11 @@
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="email-capture-tab" data-bs-toggle="tab" data-bs-target="#email-capture-config" type="button" role="tab">
                         <i class="bi bi-funnel"></i> Email Capture
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="utility-attributes-tab" data-bs-toggle="tab" data-bs-target="#utility-attributes-config" type="button" role="tab">
+                        <i class="bi bi-clock"></i> Utility Attributes
                     </button>
                 </li>
             </ul>
@@ -553,6 +677,208 @@
                                             <label class="form-label">Search Folders</label>
                                             <input type="text" class="form-control" id="searchFolders" value="INBOX, Bills, Utilities" placeholder="INBOX, Bills">
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Utility Attributes Configuration Tab -->
+                <div class="tab-pane fade" id="utility-attributes-config" role="tabpanel">
+                    <div class="row mb-4">
+                        <div class="col">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Configure billing timeframes and attributes for each utility provider. Not all utility bills are monthly - some providers send quarterly, bi-monthly, or other billing cycles.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Utility Attributes Configuration -->
+                    <div class="row">
+                        <div class="col-lg-4">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6><i class="bi bi-lightning-charge text-warning"></i> Electricity Attributes</h6>
+                                </div>
+                                <div class="card-body">
+                                    <form id="electricityAttributesForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Provider Name</label>
+                                            <input type="text" class="form-control" id="elecAttrProviderName" placeholder="e.g., EnergyAustralia">
+                                            <div class="form-text">Name of your electricity provider</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Billing Cycle</label>
+                                            <select class="form-select" id="elecBillingCycle">
+                                                <option value="monthly">Monthly</option>
+                                                <option value="bi-monthly">Bi-Monthly (Every 2 months)</option>
+                                                <option value="quarterly">Quarterly (Every 3 months)</option>
+                                                <option value="semi-annual">Semi-Annual (Every 6 months)</option>
+                                                <option value="annual">Annual (Yearly)</option>
+                                                <option value="custom">Custom</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3" id="elecCustomCycleDays" style="display: none;">
+                                            <label class="form-label">Custom Cycle (Days)</label>
+                                            <input type="number" class="form-control" id="elecCustomDays" min="1" max="365" placeholder="30">
+                                            <div class="form-text">Number of days between bills</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Typical Due Date</label>
+                                            <select class="form-select" id="elecDueDate">
+                                                <option value="1">1st of the month</option>
+                                                <option value="15">15th of the month</option>
+                                                <option value="30">30th/End of the month</option>
+                                                <option value="custom">Custom day</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3" id="elecCustomDueDate" style="display: none;">
+                                            <label class="form-label">Custom Due Day</label>
+                                            <input type="number" class="form-control" id="elecCustomDueDay" min="1" max="31" placeholder="15">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Average Monthly Usage (kWh)</label>
+                                            <input type="number" class="form-control" id="elecAvgUsage" step="0.1" placeholder="500">
+                                            <div class="form-text">Helps with usage anomaly detection</div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-4">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6><i class="bi bi-fire text-danger"></i> Gas Attributes</h6>
+                                </div>
+                                <div class="card-body">
+                                    <form id="gasAttributesForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Provider Name</label>
+                                            <input type="text" class="form-control" id="gasAttrProviderName" placeholder="e.g., Origin Energy">
+                                            <div class="form-text">Name of your gas provider</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Billing Cycle</label>
+                                            <select class="form-select" id="gasBillingCycle">
+                                                <option value="monthly">Monthly</option>
+                                                <option value="bi-monthly">Bi-Monthly (Every 2 months)</option>
+                                                <option value="quarterly">Quarterly (Every 3 months)</option>
+                                                <option value="semi-annual">Semi-Annual (Every 6 months)</option>
+                                                <option value="annual">Annual (Yearly)</option>
+                                                <option value="custom">Custom</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3" id="gasCustomCycleDays" style="display: none;">
+                                            <label class="form-label">Custom Cycle (Days)</label>
+                                            <input type="number" class="form-control" id="gasCustomDays" min="1" max="365" placeholder="90">
+                                            <div class="form-text">Number of days between bills</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Typical Due Date</label>
+                                            <select class="form-select" id="gasDueDate">
+                                                <option value="1">1st of the month</option>
+                                                <option value="15">15th of the month</option>
+                                                <option value="30">30th/End of the month</option>
+                                                <option value="custom">Custom day</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3" id="gasCustomDueDate" style="display: none;">
+                                            <label class="form-label">Custom Due Day</label>
+                                            <input type="number" class="form-control" id="gasCustomDueDay" min="1" max="31" placeholder="20">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Average Monthly Usage (MJ or m³)</label>
+                                            <input type="number" class="form-control" id="gasAvgUsage" step="0.1" placeholder="250">
+                                            <div class="form-text">Helps with usage anomaly detection</div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-4">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6><i class="bi bi-droplet text-primary"></i> Water Attributes</h6>
+                                </div>
+                                <div class="card-body">
+                                    <form id="waterAttributesForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Provider Name</label>
+                                            <input type="text" class="form-control" id="waterAttrProviderName" placeholder="e.g., Sydney Water">
+                                            <div class="form-text">Name of your water provider</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Billing Cycle</label>
+                                            <select class="form-select" id="waterBillingCycle">
+                                                <option value="monthly">Monthly</option>
+                                                <option value="bi-monthly">Bi-Monthly (Every 2 months)</option>
+                                                <option value="quarterly" selected>Quarterly (Every 3 months)</option>
+                                                <option value="semi-annual">Semi-Annual (Every 6 months)</option>
+                                                <option value="annual">Annual (Yearly)</option>
+                                                <option value="custom">Custom</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3" id="waterCustomCycleDays" style="display: none;">
+                                            <label class="form-label">Custom Cycle (Days)</label>
+                                            <input type="number" class="form-control" id="waterCustomDays" min="1" max="365" placeholder="90">
+                                            <div class="form-text">Number of days between bills</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Typical Due Date</label>
+                                            <select class="form-select" id="waterDueDate">
+                                                <option value="1">1st of the month</option>
+                                                <option value="15">15th of the month</option>
+                                                <option value="30">30th/End of the month</option>
+                                                <option value="custom">Custom day</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3" id="waterCustomDueDate" style="display: none;">
+                                            <label class="form-label">Custom Due Day</label>
+                                            <input type="number" class="form-control" id="waterCustomDueDay" min="1" max="31" placeholder="25">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Average Monthly Usage (kL)</label>
+                                            <input type="number" class="form-control" id="waterAvgUsage" step="0.1" placeholder="15">
+                                            <div class="form-text">Helps with usage anomaly detection</div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row mb-4">
+                        <div class="col">
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-primary" onclick="saveUtilityAttributes()">
+                                    <i class="bi bi-check-circle"></i> Save Attributes
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="loadUtilityAttributes()">
+                                    <i class="bi bi-arrow-clockwise"></i> Reload
+                                </button>
+                                <button type="button" class="btn btn-info" onclick="validateBillingSchedule()">
+                                    <i class="bi bi-calendar-check"></i> Validate Schedule
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Billing Schedule Preview -->
+                    <div class="row mb-4">
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="bi bi-calendar3"></i> Billing Schedule Preview</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="billingSchedulePreview" class="table-responsive">
+                                        <!-- Billing schedule will be loaded here -->
+                                        <p class="text-muted">Configure utility attributes above to see billing schedule preview</p>
                                     </div>
                                 </div>
                             </div>

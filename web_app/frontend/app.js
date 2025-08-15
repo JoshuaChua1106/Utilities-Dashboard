@@ -95,6 +95,7 @@ function showSection(sectionId) {
         case 'configuration':
             loadGmailConfiguration();
             loadEmailCaptureConfiguration();
+            loadUtilityAttributes();
             break;
     }
 }
@@ -194,6 +195,7 @@ function updateRecentInvoices(invoices) {
                     <th>Service Charge</th>
                     <th>Usage Charge</th>
                     <th>Usage</th>
+                    <th>Rate</th>
                 </tr>
             </thead>
             <tbody>
@@ -211,6 +213,7 @@ function updateRecentInvoices(invoices) {
                             <td class="text-currency">$${invoice.service_charge ? invoice.service_charge.toFixed(2) : '0.00'}</td>
                             <td class="text-currency">$${usageCharge.toFixed(2)}</td>
                             <td>${invoice.usage_quantity ? invoice.usage_quantity.toFixed(1) : 'N/A'}</td>
+                            <td>${invoice.usage_rate ? '$' + invoice.usage_rate.toFixed(4) : 'N/A'}</td>
                         </tr>
                     `;
                 }).join('')}
@@ -371,12 +374,12 @@ async function loadAnalytics() {
     showLoading();
     
     try {
+        // Load both basic and enhanced analytics
         const analytics = await apiCall('/analytics');
         const providers = await apiCall('/providers');
         
-        // Create detailed charts
-        createMonthlyChart(analytics.monthly_trends);
-        createProviderChart(analytics.provider_performance);
+        // Load enhanced analytics with current filter values
+        await updateAnalytics();
         
         // Update provider statistics table
         updateProviderStats(providers.providers);
@@ -386,6 +389,53 @@ async function loadAnalytics() {
         showAlert('Error loading analytics data', 'danger');
     } finally {
         hideLoading();
+    }
+}
+
+/**
+ * Update analytics based on current filter selections
+ */
+async function updateAnalytics() {
+    try {
+        const serviceType = document.getElementById('analyticsServiceFilter').value;
+        const months = document.getElementById('analyticsTimeFilter').value;
+        const analysisType = document.getElementById('analyticsTypeFilter').value;
+        
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (serviceType) params.append('service_type', serviceType);
+        params.append('months', months);
+        params.append('analysis_type', analysisType);
+        
+        // Fetch enhanced analytics data
+        const enhancedAnalytics = await apiCall(`/analytics/enhanced?${params.toString()}`);
+        
+        // Store globally for chart type changes
+        window.currentAnalyticsData = enhancedAnalytics;
+        
+        // Update main chart title
+        const serviceText = serviceType ? serviceType : 'All Services';
+        const typeText = {
+            'spending': 'Spending',
+            'usage': 'Usage',
+            'rates': 'Rate',
+            'service_fees': 'Service Fee'
+        }[analysisType] || 'Spending';
+        
+        document.getElementById('mainChartTitle').innerHTML = 
+            `<i class="bi bi-bar-chart-line"></i> Monthly ${typeText} Trends - ${serviceText}`;
+        
+        // Update all charts
+        createMainAnalyticsChart(enhancedAnalytics, analysisType, serviceType);
+        createServiceTrendCharts(enhancedAnalytics.service_trends, analysisType);
+        createRateComparisonChart(enhancedAnalytics.rate_comparison);
+        createServiceFeeChart(enhancedAnalytics.service_trends);
+        updateServiceStats(enhancedAnalytics.service_statistics);
+        updateCostBreakdown(enhancedAnalytics.cost_breakdown);
+        
+    } catch (error) {
+        console.error('Error updating analytics:', error);
+        showAlert('Error updating analytics data', 'danger');
     }
 }
 
@@ -450,6 +500,69 @@ function clearFilters() {
     $('#startDateFilter, #endDateFilter').val('');
     currentFilters = {};
     loadInvoices(1);
+}
+
+/**
+ * Export invoices to CSV
+ */
+async function exportInvoicesCSV() {
+    try {
+        const exportBtn = $('button[onclick="exportInvoicesCSV()"]');
+        const originalText = exportBtn.html();
+        exportBtn.html('<i class="bi bi-hourglass-split"></i> Exporting...').prop('disabled', true);
+        
+        // Build query parameters for current filters
+        const params = new URLSearchParams(currentFilters);
+        params.append('export', 'true');
+        
+        // Make request to export endpoint
+        const response = await fetch(`${CONFIG.API_BASE_URL}/export/csv?${params.toString()}`);
+        
+        if (!response.ok) {
+            throw new Error(`Export failed: ${response.status} ${response.statusText}`);
+        }
+        
+        // Get the CSV data
+        const csvData = await response.text();
+        
+        // Create download link
+        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            
+            // Generate filename with current date and filters
+            const dateStr = new Date().toISOString().split('T')[0];
+            let filename = `invoices_${dateStr}`;
+            
+            // Add filter info to filename
+            if (currentFilters.service_type) {
+                filename += `_${currentFilters.service_type.toLowerCase()}`;
+            }
+            if (currentFilters.provider) {
+                filename += `_${currentFilters.provider.toLowerCase().replace(/\s+/g, '_')}`;
+            }
+            
+            link.setAttribute('download', `${filename}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showAlert('CSV export completed successfully', 'success');
+        } else {
+            throw new Error('Browser does not support file downloads');
+        }
+        
+    } catch (error) {
+        console.error('CSV export failed:', error);
+        showAlert(`CSV export failed: ${error.message}`, 'danger');
+    } finally {
+        const exportBtn = $('button[onclick="exportInvoicesCSV()"]');
+        exportBtn.html('<i class="bi bi-download"></i> Export CSV').prop('disabled', false);
+    }
 }
 
 /**
@@ -1199,3 +1312,699 @@ function testEmailPatterns() {
         testBtn.html(originalText).prop('disabled', false);
     });
 }
+
+// ================================
+// UTILITY ATTRIBUTES CONFIGURATION
+// ================================
+
+/**
+ * Load utility attributes configuration when tab is shown
+ */
+function loadUtilityAttributes() {
+    fetch(`${CONFIG.API_BASE_URL}/configuration/utility-attributes`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const attributes = data.attributes;
+                
+                // Load Electricity attributes
+                if (attributes.electricity) {
+                    $('#elecAttrProviderName').val(attributes.electricity.provider_name || '');
+                    $('#elecBillingCycle').val(attributes.electricity.billing_cycle || 'monthly');
+                    $('#elecCustomDays').val(attributes.electricity.custom_cycle_days || '');
+                    $('#elecDueDate').val(attributes.electricity.due_date || '1');
+                    $('#elecCustomDueDay').val(attributes.electricity.custom_due_day || '');
+                    $('#elecAvgUsage').val(attributes.electricity.avg_monthly_usage || '');
+                    
+                    toggleCustomFields('elec', attributes.electricity.billing_cycle, attributes.electricity.due_date);
+                }
+                
+                // Load Gas attributes
+                if (attributes.gas) {
+                    $('#gasAttrProviderName').val(attributes.gas.provider_name || '');
+                    $('#gasBillingCycle').val(attributes.gas.billing_cycle || 'monthly');
+                    $('#gasCustomDays').val(attributes.gas.custom_cycle_days || '');
+                    $('#gasDueDate').val(attributes.gas.due_date || '1');
+                    $('#gasCustomDueDay').val(attributes.gas.custom_due_day || '');
+                    $('#gasAvgUsage').val(attributes.gas.avg_monthly_usage || '');
+                    
+                    toggleCustomFields('gas', attributes.gas.billing_cycle, attributes.gas.due_date);
+                }
+                
+                // Load Water attributes
+                if (attributes.water) {
+                    $('#waterAttrProviderName').val(attributes.water.provider_name || '');
+                    $('#waterBillingCycle').val(attributes.water.billing_cycle || 'quarterly');
+                    $('#waterCustomDays').val(attributes.water.custom_cycle_days || '');
+                    $('#waterDueDate').val(attributes.water.due_date || '1');
+                    $('#waterCustomDueDay').val(attributes.water.custom_due_day || '');
+                    $('#waterAvgUsage').val(attributes.water.avg_monthly_usage || '');
+                    
+                    toggleCustomFields('water', attributes.water.billing_cycle, attributes.water.due_date);
+                }
+                
+                // Update billing schedule preview
+                updateBillingSchedulePreview(attributes);
+                
+            }
+        })
+        .catch(error => {
+            console.error('Failed to load utility attributes:', error);
+            showAlert('Failed to load utility attributes configuration', 'warning');
+        });
+}
+
+/**
+ * Save utility attributes configuration
+ */
+function saveUtilityAttributes() {
+    const attributes = {
+        electricity: {
+            provider_name: $('#elecAttrProviderName').val().trim(),
+            billing_cycle: $('#elecBillingCycle').val(),
+            custom_cycle_days: $('#elecBillingCycle').val() === 'custom' ? parseInt($('#elecCustomDays').val()) : null,
+            due_date: $('#elecDueDate').val(),
+            custom_due_day: $('#elecDueDate').val() === 'custom' ? parseInt($('#elecCustomDueDay').val()) : null,
+            avg_monthly_usage: parseFloat($('#elecAvgUsage').val()) || null
+        },
+        gas: {
+            provider_name: $('#gasAttrProviderName').val().trim(),
+            billing_cycle: $('#gasBillingCycle').val(),
+            custom_cycle_days: $('#gasBillingCycle').val() === 'custom' ? parseInt($('#gasCustomDays').val()) : null,
+            due_date: $('#gasDueDate').val(),
+            custom_due_day: $('#gasDueDate').val() === 'custom' ? parseInt($('#gasCustomDueDay').val()) : null,
+            avg_monthly_usage: parseFloat($('#gasAvgUsage').val()) || null
+        },
+        water: {
+            provider_name: $('#waterAttrProviderName').val().trim(),
+            billing_cycle: $('#waterBillingCycle').val(),
+            custom_cycle_days: $('#waterBillingCycle').val() === 'custom' ? parseInt($('#waterCustomDays').val()) : null,
+            due_date: $('#waterDueDate').val(),
+            custom_due_day: $('#waterDueDate').val() === 'custom' ? parseInt($('#waterCustomDueDay').val()) : null,
+            avg_monthly_usage: parseFloat($('#waterAvgUsage').val()) || null
+        }
+    };
+
+    // Show loading state
+    const saveBtn = $('button[onclick="saveUtilityAttributes()"]');
+    const originalText = saveBtn.html();
+    saveBtn.html('<i class="bi bi-hourglass-split"></i> Saving...').prop('disabled', true);
+
+    fetch(`${CONFIG.API_BASE_URL}/configuration/utility-attributes`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ attributes: attributes })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Utility attributes saved successfully', 'success');
+            updateBillingSchedulePreview(attributes);
+        } else {
+            showAlert(`Failed to save attributes: ${data.error}`, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Failed to save utility attributes:', error);
+        showAlert('Failed to save utility attributes', 'danger');
+    })
+    .finally(() => {
+        saveBtn.html(originalText).prop('disabled', false);
+    });
+}
+
+/**
+ * Validate billing schedule and show any conflicts
+ */
+function validateBillingSchedule() {
+    const validateBtn = $('button[onclick="validateBillingSchedule()"]');
+    const originalText = validateBtn.html();
+    validateBtn.html('<i class="bi bi-hourglass-split"></i> Validating...').prop('disabled', true);
+
+    fetch(`${CONFIG.API_BASE_URL}/configuration/utility-attributes/validate`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const validation = data.validation;
+            let message = 'Billing schedule validation:\n\n';
+            
+            if (validation.conflicts && validation.conflicts.length > 0) {
+                message += 'Potential conflicts found:\n';
+                validation.conflicts.forEach(conflict => {
+                    message += `• ${conflict}\n`;
+                });
+                showAlert(message, 'warning', 8000);
+            } else {
+                message += 'No scheduling conflicts detected.\n';
+                message += `Next expected bills:\n`;
+                if (validation.next_bills) {
+                    validation.next_bills.forEach(bill => {
+                        message += `• ${bill.service}: ${bill.date}\n`;
+                    });
+                }
+                showAlert(message, 'success', 6000);
+            }
+        } else {
+            showAlert(`Validation failed: ${data.error}`, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Billing schedule validation failed:', error);
+        showAlert('Billing schedule validation failed', 'danger');
+    })
+    .finally(() => {
+        validateBtn.html(originalText).prop('disabled', false);
+    });
+}
+
+/**
+ * Toggle custom fields based on dropdown selection
+ */
+function toggleCustomFields(prefix, billingCycle, dueDate) {
+    // Toggle custom cycle days
+    const customCycleDays = $(`#${prefix}CustomCycleDays`);
+    if (billingCycle === 'custom') {
+        customCycleDays.show();
+    } else {
+        customCycleDays.hide();
+    }
+    
+    // Toggle custom due date
+    const customDueDate = $(`#${prefix}CustomDueDate`);
+    if (dueDate === 'custom') {
+        customDueDate.show();
+    } else {
+        customDueDate.hide();
+    }
+}
+
+/**
+ * Update billing schedule preview table
+ */
+function updateBillingSchedulePreview(attributes) {
+    if (!attributes || Object.keys(attributes).length === 0) {
+        $('#billingSchedulePreview').html('<p class="text-muted">Configure utility attributes above to see billing schedule preview</p>');
+        return;
+    }
+
+    // Calculate next 6 months of expected bills
+    const today = new Date();
+    const months = [];
+    
+    for (let i = 0; i < 6; i++) {
+        const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
+        months.push(date);
+    }
+
+    let scheduleHtml = `
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Electricity</th>
+                    <th>Gas</th>
+                    <th>Water</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+    months.forEach(month => {
+        const monthStr = month.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        
+        // Calculate if bills are due this month for each service
+        const elecDue = calculateBillDue('electricity', attributes.electricity, month);
+        const gasDue = calculateBillDue('gas', attributes.gas, month);
+        const waterDue = calculateBillDue('water', attributes.water, month);
+
+        scheduleHtml += `
+            <tr>
+                <td><strong>${monthStr}</strong></td>
+                <td>${elecDue ? '<span class="badge bg-warning text-dark">Due</span>' : '-'}</td>
+                <td>${gasDue ? '<span class="badge bg-danger">Due</span>' : '-'}</td>
+                <td>${waterDue ? '<span class="badge bg-primary">Due</span>' : '-'}</td>
+            </tr>`;
+    });
+
+    scheduleHtml += '</tbody></table>';
+    $('#billingSchedulePreview').html(scheduleHtml);
+}
+
+/**
+ * Calculate if a bill is due in a given month
+ */
+function calculateBillDue(serviceType, attributes, month) {
+    if (!attributes || !attributes.billing_cycle) {
+        return false;
+    }
+
+    const cycleMonths = {
+        'monthly': 1,
+        'bi-monthly': 2,
+        'quarterly': 3,
+        'semi-annual': 6,
+        'annual': 12
+    };
+
+    const cycle = cycleMonths[attributes.billing_cycle] || 1;
+    
+    // Simple calculation - in reality this would be more complex
+    // This is just for preview purposes
+    if (cycle === 1) return true; // Monthly - always due
+    if (cycle === 2) return month.getMonth() % 2 === 0; // Bi-monthly - every other month
+    if (cycle === 3) return month.getMonth() % 3 === 0; // Quarterly - every 3 months
+    if (cycle === 6) return month.getMonth() % 6 === 0; // Semi-annual
+    if (cycle === 12) return month.getMonth() === 0; // Annual - January
+    
+    return false;
+}
+
+// ================================
+// ENHANCED ANALYTICS CHART FUNCTIONS  
+// ================================
+
+/**
+ * Create main analytics chart based on analysis type
+ */
+function createMainAnalyticsChart(data, analysisType, serviceType) {
+    const ctx = document.getElementById('mainAnalyticsChart');
+    if (!ctx) return;
+    
+    // Destroy existing chart
+    if (charts.mainAnalyticsChart) {
+        charts.mainAnalyticsChart.destroy();
+    }
+    
+    let chartData = {};
+    let yAxisLabel = '';
+    
+    if (serviceType) {
+        // Single service chart
+        const serviceData = data.service_trends[serviceType];
+        if (!serviceData || !serviceData[analysisType]) return;
+        
+        const trends = serviceData[analysisType];
+        chartData = {
+            labels: trends.map(t => t.month),
+            datasets: [{
+                label: getDatasetLabel(analysisType, serviceType),
+                data: trends.map(t => getDataValue(t, analysisType)),
+                borderColor: CONFIG.CHART_COLORS[serviceType.toLowerCase()],
+                backgroundColor: CONFIG.CHART_COLORS[serviceType.toLowerCase()] + '20',
+                tension: 0.4,
+                fill: true
+            }]
+        };
+        yAxisLabel = getYAxisLabel(analysisType);
+    } else {
+        // All services chart
+        const services = ['Electricity', 'Gas', 'Water'];
+        chartData = {
+            labels: data.service_trends.Electricity[analysisType]?.map(t => t.month) || [],
+            datasets: services.map(service => {
+                const trends = data.service_trends[service][analysisType] || [];
+                return {
+                    label: service,
+                    data: trends.map(t => getDataValue(t, analysisType)),
+                    borderColor: CONFIG.CHART_COLORS[service.toLowerCase()],
+                    backgroundColor: CONFIG.CHART_COLORS[service.toLowerCase()] + '20',
+                    tension: 0.4,
+                    fill: false
+                };
+            })
+        };
+        yAxisLabel = getYAxisLabel(analysisType);
+    }
+    
+    const chartType = document.querySelector('input[name="chartType"]:checked').id === 'lineChart' ? 'line' : 'bar';
+    
+    charts.mainAnalyticsChart = new Chart(ctx, {
+        type: chartType,
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Month'
+                    }
+                },
+                y: {
+                    display: true,
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: yAxisLabel
+                    },
+                    ticks: {
+                        // Calculate better scaling based on data range
+                        callback: function(value, index, values) {
+                            if (analysisType === 'usage') {
+                                return value.toFixed(0);
+                            } else if (analysisType === 'rates') {
+                                return '$' + value.toFixed(4);
+                            } else {
+                                return '$' + value.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Create individual service trend charts
+ */
+function createServiceTrendCharts(serviceTrends, analysisType) {
+    const services = ['Electricity', 'Gas', 'Water'];
+    
+    services.forEach(service => {
+        const chartId = `${service.toLowerCase()}TrendChart`;
+        const ctx = document.getElementById(chartId);
+        if (!ctx) return;
+        
+        // Destroy existing chart
+        if (charts[chartId]) {
+            charts[chartId].destroy();
+        }
+        
+        const trends = serviceTrends[service][analysisType] || [];
+        if (trends.length === 0) return;
+        
+        charts[chartId] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: trends.map(t => t.month),
+                datasets: [{
+                    label: getDatasetLabel(analysisType, service),
+                    data: trends.map(t => getDataValue(t, analysisType)),
+                    borderColor: CONFIG.CHART_COLORS[service.toLowerCase()],
+                    backgroundColor: CONFIG.CHART_COLORS[service.toLowerCase()] + '20',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        display: true,
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: getYAxisLabel(analysisType, true)
+                        },
+                        ticks: {
+                            maxTicksLimit: 5,
+                            callback: function(value, index, values) {
+                                if (analysisType === 'usage') {
+                                    return value.toFixed(0);
+                                } else if (analysisType === 'rates') {
+                                    return '$' + value.toFixed(4);
+                                } else {
+                                    return '$' + value.toFixed(0);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Create rate comparison chart
+ */
+function createRateComparisonChart(rateData) {
+    const ctx = document.getElementById('rateComparisonChart');
+    if (!ctx || !rateData) return;
+    
+    // Destroy existing chart
+    if (charts.rateComparisonChart) {
+        charts.rateComparisonChart.destroy();
+    }
+    
+    charts.rateComparisonChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: rateData.map(r => r.service_type),
+            datasets: [{
+                label: 'Average Rate',
+                data: rateData.map(r => r.avg_rate),
+                backgroundColor: rateData.map(r => CONFIG.CHART_COLORS[r.service_type.toLowerCase()])
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Rate ($/unit)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Create service fee chart
+ */
+function createServiceFeeChart(serviceTrends) {
+    const ctx = document.getElementById('serviceFeeChart');
+    if (!ctx) return;
+    
+    // Destroy existing chart
+    if (charts.serviceFeeChart) {
+        charts.serviceFeeChart.destroy();
+    }
+    
+    const services = ['Electricity', 'Gas', 'Water'];
+    const datasets = services.map(service => {
+        const trends = serviceTrends[service].service_fees || [];
+        return {
+            label: service,
+            data: trends.map(t => t.avg_service_charge),
+            borderColor: CONFIG.CHART_COLORS[service.toLowerCase()],
+            backgroundColor: CONFIG.CHART_COLORS[service.toLowerCase()] + '20',
+            tension: 0.4
+        };
+    });
+    
+    // Use the longest label array
+    const labels = serviceTrends.Electricity?.service_fees?.map(t => t.month) || [];
+    
+    charts.serviceFeeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Service Fees ($)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Update service statistics table
+ */
+function updateServiceStats(serviceStats) {
+    const container = document.getElementById('serviceStats');
+    if (!container || !serviceStats) return;
+    
+    let tableHtml = `
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Invoices</th>
+                    <th>Total Amount</th>
+                    <th>Avg Amount</th>
+                    <th>Avg Rate</th>
+                    <th>Total Usage</th>
+                </tr>
+            </thead>
+            <tbody>`;
+    
+    Object.entries(serviceStats).forEach(([service, stats]) => {
+        const serviceIcon = {
+            'Electricity': '⚡',
+            'Gas': '🔥',
+            'Water': '💧'
+        }[service] || '';
+        
+        tableHtml += `
+            <tr>
+                <td><strong>${serviceIcon} ${service}</strong></td>
+                <td>${stats.total_invoices}</td>
+                <td>$${stats.total_amount.toFixed(2)}</td>
+                <td>$${stats.avg_amount.toFixed(2)}</td>
+                <td>$${stats.avg_rate.toFixed(4)}</td>
+                <td>${stats.total_usage.toFixed(2)}</td>
+            </tr>`;
+    });
+    
+    tableHtml += '</tbody></table>';
+    container.innerHTML = tableHtml;
+}
+
+/**
+ * Update cost breakdown analysis
+ */
+function updateCostBreakdown(costBreakdown) {
+    const container = document.getElementById('costBreakdown');
+    if (!container || !costBreakdown) return;
+    
+    let breakdownHtml = '';
+    costBreakdown.forEach(breakdown => {
+        const serviceIcon = {
+            'Electricity': '⚡',
+            'Gas': '🔥', 
+            'Water': '💧'
+        }[breakdown.service_type] || '';
+        
+        breakdownHtml += `
+            <div class="mb-3">
+                <h6>${serviceIcon} ${breakdown.service_type}</h6>
+                <div class="row">
+                    <div class="col-sm-6">
+                        <small class="text-muted">Service Charges</small>
+                        <div class="fw-bold text-warning">
+                            $${breakdown.total_service_charges.toFixed(2)} 
+                            (${breakdown.service_charge_percentage.toFixed(1)}%)
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <small class="text-muted">Usage Charges</small>
+                        <div class="fw-bold text-primary">
+                            $${breakdown.total_usage_charges.toFixed(2)} 
+                            (${breakdown.usage_charge_percentage.toFixed(1)}%)
+                        </div>
+                    </div>
+                </div>
+                <div class="progress mt-2" style="height: 8px;">
+                    <div class="progress-bar bg-warning" style="width: ${breakdown.service_charge_percentage}%"></div>
+                    <div class="progress-bar bg-primary" style="width: ${breakdown.usage_charge_percentage}%"></div>
+                </div>
+            </div>`;
+    });
+    
+    container.innerHTML = breakdownHtml;
+}
+
+// Helper functions for chart data processing
+function getDatasetLabel(analysisType, service) {
+    const labels = {
+        'spending': `${service} Spending`,
+        'usage': `${service} Usage`,
+        'rates': `${service} Rate`, 
+        'service_fees': `${service} Service Fees`
+    };
+    return labels[analysisType] || 'Data';
+}
+
+function getDataValue(dataPoint, analysisType) {
+    switch (analysisType) {
+        case 'spending': return dataPoint.total_amount || dataPoint.avg_amount || 0;
+        case 'usage': return dataPoint.total_usage || dataPoint.avg_usage || 0;
+        case 'rates': return dataPoint.avg_rate || 0;
+        case 'service_fees': return dataPoint.avg_service_charge || dataPoint.total_service_charge || 0;
+        default: return 0;
+    }
+}
+
+function getYAxisLabel(analysisType, short = false) {
+    const labels = {
+        'spending': short ? '$' : 'Amount ($)',
+        'usage': short ? 'Units' : 'Usage (kWh/m³/kL)',
+        'rates': short ? '$/unit' : 'Rate ($/unit)',
+        'service_fees': short ? '$' : 'Service Fees ($)'
+    };
+    return labels[analysisType] || 'Value';
+}
+
+// Set up event listeners for chart type changes
+$(document).ready(function() {
+    $('input[name="chartType"]').change(function() {
+        // Reload main chart with new type
+        if (window.currentAnalyticsData) {
+            const serviceType = document.getElementById('analyticsServiceFilter').value;
+            const analysisType = document.getElementById('analyticsTypeFilter').value;
+            createMainAnalyticsChart(window.currentAnalyticsData, analysisType, serviceType);
+        }
+    });
+});
+
+// Set up event listeners for utility attributes form changes
+$(document).ready(function() {
+    // Billing cycle change events
+    $('#elecBillingCycle').change(function() {
+        toggleCustomFields('elec', $(this).val(), $('#elecDueDate').val());
+    });
+    $('#gasBillingCycle').change(function() {
+        toggleCustomFields('gas', $(this).val(), $('#gasDueDate').val());
+    });
+    $('#waterBillingCycle').change(function() {
+        toggleCustomFields('water', $(this).val(), $('#waterDueDate').val());
+    });
+    
+    // Due date change events
+    $('#elecDueDate').change(function() {
+        toggleCustomFields('elec', $('#elecBillingCycle').val(), $(this).val());
+    });
+    $('#gasDueDate').change(function() {
+        toggleCustomFields('gas', $('#gasBillingCycle').val(), $(this).val());
+    });
+    $('#waterDueDate').change(function() {
+        toggleCustomFields('water', $('#waterBillingCycle').val(), $(this).val());
+    });
+});

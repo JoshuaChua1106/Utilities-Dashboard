@@ -47,9 +47,38 @@ class AuthAdapter:
             logger.error(f"Failed to save credentials: {e}")
     
     def get_gmail_credentials(self) -> Optional[Dict]:
-        """Get Gmail OAuth2 credentials."""
+        """Get Gmail OAuth2 credentials from environment variables or file."""
+        import os
+        
+        # First, try to get credentials from environment variables
+        env_client_id = os.getenv('GMAIL_CLIENT_ID')
+        env_client_secret = os.getenv('GMAIL_CLIENT_SECRET')
+        env_refresh_token = os.getenv('GMAIL_REFRESH_TOKEN')
+        
+        if env_client_id and env_client_secret and env_refresh_token:
+            logger.info("Using Gmail credentials from environment variables")
+            gmail_creds = {
+                'type': 'oauth2',
+                'client_id': env_client_id,
+                'client_secret': env_client_secret,
+                'refresh_token': env_refresh_token,
+                'access_token': None,
+                'token_expires_at': None,
+                'scopes': ['https://www.googleapis.com/auth/gmail.readonly']
+            }
+            
+            # Check if we need to refresh the token
+            if self._token_needs_refresh(gmail_creds):
+                refreshed = self._refresh_gmail_token(gmail_creds)
+                if not refreshed:
+                    logger.error("Failed to refresh Gmail token from environment variables")
+                    return None
+            
+            return gmail_creds
+        
+        # Fallback to file-based credentials
         if 'gmail' not in self.credentials:
-            logger.error("Gmail credentials not configured")
+            logger.error("Gmail credentials not configured in environment or file")
             return None
         
         gmail_creds = self.credentials['gmail']

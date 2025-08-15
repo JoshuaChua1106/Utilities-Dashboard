@@ -310,6 +310,26 @@ canvas {
     to { transform: translateX(0); opacity: 1; }
 }
 
+/* KPI Cards Sizing Fix */
+.kpi-card {
+    flex: 0 0 19.2%; /* 19.2% width for 5 cards (96% total with gaps) */
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 1199.98px) {
+    .kpi-card {
+        flex: 0 0 48%; /* 2 cards per row on large tablets */
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .kpi-card {
+        flex: 0 0 100%; /* 1 card per row on mobile */
+        margin-bottom: 1rem;
+    }
+}
+
 /* Configuration Section Styles */
 .setup-steps li {
     margin-bottom: 8px;

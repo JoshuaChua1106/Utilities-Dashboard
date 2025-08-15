@@ -1,0 +1,26 @@
+{
+  "electricity": {
+    "provider_name": "Lumo Energy",
+    "billing_cycle": "monthly",
+    "custom_cycle_days": null,
+    "due_date": "30",
+    "custom_due_day": null,
+    "avg_monthly_usage": 500
+  },
+  "gas": {
+    "provider_name": "Lumo Energy",
+    "billing_cycle": "bi-monthly",
+    "custom_cycle_days": null,
+    "due_date": "15",
+    "custom_due_day": null,
+    "avg_monthly_usage": 250
+  },
+  "water": {
+    "provider_name": "Yarra Valley Water",
+    "billing_cycle": "quarterly",
+    "custom_cycle_days": null,
+    "due_date": "1",
+    "custom_due_day": null,
+    "avg_monthly_usage": 15
+  }
+}
