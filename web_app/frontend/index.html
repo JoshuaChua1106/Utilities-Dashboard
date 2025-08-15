@@ -39,6 +39,11 @@
                             <i class="bi bi-graph-up"></i> Analytics
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#configuration" onclick="showSection('configuration')">
+                            <i class="bi bi-gear-fill"></i> Configuration
+                        </a>
+                    </li>
                 </ul>
                 <ul class="navbar-nav">
                     <li class="nav-item">
@@ -83,7 +88,7 @@
 
             <!-- KPI Cards -->
             <div class="row mb-4">
-                <div class="col-md-3">
+                <div class="col-lg-2 col-md-4 col-sm-6">
                     <div class="card bg-primary text-white">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
@@ -96,7 +101,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-lg-2 col-md-4 col-sm-6">
                     <div class="card bg-success text-white">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
@@ -109,7 +114,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-lg-2 col-md-4 col-sm-6">
                     <div class="card bg-info text-white">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
@@ -122,15 +127,28 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-lg-2 col-md-4 col-sm-6">
                     <div class="card bg-warning text-white">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
                                 <div>
-                                    <h5 class="card-title">This Month</h5>
-                                    <h3 id="thisMonth">$-</h3>
+                                    <h5 class="card-title">Service Charges</h5>
+                                    <h3 id="totalServiceCharges">$-</h3>
                                 </div>
-                                <i class="bi bi-calendar-month fs-1 ms-auto opacity-75"></i>
+                                <i class="bi bi-gear fs-1 ms-auto opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4 col-sm-6">
+                    <div class="card bg-secondary text-white">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div>
+                                    <h5 class="card-title">Usage Charges</h5>
+                                    <h3 id="totalUsageCharges">$-</h3>
+                                </div>
+                                <i class="bi bi-speedometer2 fs-1 ms-auto opacity-75"></i>
                             </div>
                         </div>
                     </div>
@@ -286,6 +304,259 @@
                 <div class="card-body">
                     <div id="providerStats" class="table-responsive">
                         <!-- Provider statistics will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Section -->
+        <div id="configuration" class="content-section" style="display: none;">
+            <div class="row mb-4">
+                <div class="col">
+                    <h2><i class="bi bi-gear-fill"></i> Configuration</h2>
+                    <p class="text-muted">Configure Gmail API connection and email capture settings</p>
+                </div>
+            </div>
+
+            <!-- Configuration Tabs -->
+            <ul class="nav nav-tabs mb-4" id="configTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="gmail-tab" data-bs-toggle="tab" data-bs-target="#gmail-config" type="button" role="tab">
+                        <i class="bi bi-envelope"></i> Gmail API
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="email-capture-tab" data-bs-toggle="tab" data-bs-target="#email-capture-config" type="button" role="tab">
+                        <i class="bi bi-funnel"></i> Email Capture
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="configTabContent">
+                <!-- Gmail API Configuration Tab -->
+                <div class="tab-pane fade show active" id="gmail-config" role="tabpanel">
+                    <div class="row mb-4">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5><i class="bi bi-envelope"></i> Gmail API Configuration</h5>
+                            <span id="gmailConnectionStatus" class="badge bg-secondary">Checking...</span>
+                        </div>
+                        <div class="card-body">
+                            <form id="gmailConfigForm">
+                                <div class="mb-3">
+                                    <label for="gmailClientId" class="form-label">Gmail Client ID</label>
+                                    <input type="text" class="form-control" id="gmailClientId" 
+                                           placeholder="your-client-id.googleusercontent.com">
+                                    <div class="form-text">Get this from Google Cloud Console</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="gmailClientSecret" class="form-label">Gmail Client Secret</label>
+                                    <input type="password" class="form-control" id="gmailClientSecret" 
+                                           placeholder="Enter client secret">
+                                    <div class="form-text">Keep this secure and private</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="gmailRefreshToken" class="form-label">Refresh Token</label>
+                                    <input type="password" class="form-control" id="gmailRefreshToken" 
+                                           placeholder="OAuth2 refresh token">
+                                    <div class="form-text">Generated during OAuth2 flow</div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-primary" onclick="saveGmailConfig()">
+                                        <i class="bi bi-check-circle"></i> Save Configuration
+                                    </button>
+                                    <button type="button" class="btn btn-success" onclick="testGmailConnection()">
+                                        <i class="bi bi-wifi"></i> Test Connection
+                                    </button>
+                                    <button type="button" class="btn btn-warning" onclick="initiateOAuth()">
+                                        <i class="bi bi-key"></i> Start OAuth2 Flow
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="bi bi-info-circle"></i> Setup Instructions</h6>
+                        </div>
+                        <div class="card-body">
+                            <ol class="list-unstyled setup-steps">
+                                <li><i class="bi bi-1-circle text-primary"></i> Create Google Cloud Project</li>
+                                <li><i class="bi bi-2-circle text-primary"></i> Enable Gmail API</li>
+                                <li><i class="bi bi-3-circle text-primary"></i> Create OAuth2 Credentials</li>
+                                <li><i class="bi bi-4-circle text-primary"></i> Configure redirect URI</li>
+                                <li><i class="bi bi-5-circle text-primary"></i> Complete OAuth2 flow</li>
+                            </ol>
+                            <a href="https://developers.google.com/gmail/api/quickstart" 
+                               target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-book"></i> View Guide
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                    <!-- Connection Status -->
+                    <div class="row mb-4">
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="bi bi-activity"></i> Connection Status</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="connectionStatusDetails">
+                                        <!-- Status details will be loaded here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Email Capture Configuration Tab -->
+                <div class="tab-pane fade" id="email-capture-config" role="tabpanel">
+                    <div class="row mb-4">
+                        <div class="col">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Configure email patterns to capture the correct utility bills for Electricity, Gas, and Water providers.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Provider Configuration -->
+                    <div class="row">
+                        <div class="col-lg-4">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6><i class="bi bi-lightning-charge text-warning"></i> Electricity Provider</h6>
+                                </div>
+                                <div class="card-body">
+                                    <form id="electricityConfigForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Provider Name</label>
+                                            <input type="text" class="form-control" id="elecProviderName" placeholder="e.g., EnergyAustralia">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Email Addresses (one per line)</label>
+                                            <textarea class="form-control" id="elecEmailAddresses" rows="3" placeholder="noreply@energyaustralia.com.au&#10;bills@energyaustralia.com.au"></textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Subject Keywords (comma-separated)</label>
+                                            <input type="text" class="form-control" id="elecSubjectKeywords" placeholder="bill, invoice, electricity bill">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Exclude Keywords (comma-separated)</label>
+                                            <input type="text" class="form-control" id="elecExcludeKeywords" placeholder="marketing, newsletter">
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-4">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6><i class="bi bi-fire text-danger"></i> Gas Provider</h6>
+                                </div>
+                                <div class="card-body">
+                                    <form id="gasConfigForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Provider Name</label>
+                                            <input type="text" class="form-control" id="gasProviderName" placeholder="e.g., Origin Energy">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Email Addresses (one per line)</label>
+                                            <textarea class="form-control" id="gasEmailAddresses" rows="3" placeholder="noreply@originenergy.com.au&#10;bills@originenergy.com.au"></textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Subject Keywords (comma-separated)</label>
+                                            <input type="text" class="form-control" id="gasSubjectKeywords" placeholder="gas bill, bill, natural gas">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Exclude Keywords (comma-separated)</label>
+                                            <input type="text" class="form-control" id="gasExcludeKeywords" placeholder="marketing, offer">
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-4">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6><i class="bi bi-droplet text-primary"></i> Water Provider</h6>
+                                </div>
+                                <div class="card-body">
+                                    <form id="waterConfigForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Provider Name</label>
+                                            <input type="text" class="form-control" id="waterProviderName" placeholder="e.g., Sydney Water">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Email Addresses (one per line)</label>
+                                            <textarea class="form-control" id="waterEmailAddresses" rows="3" placeholder="noreply@sydneywater.com.au&#10;bills@sydneywater.com.au"></textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Subject Keywords (comma-separated)</label>
+                                            <input type="text" class="form-control" id="waterSubjectKeywords" placeholder="water bill, water rates, bill">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Exclude Keywords (comma-separated)</label>
+                                            <input type="text" class="form-control" id="waterExcludeKeywords" placeholder="newsletter, maintenance">
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row mb-4">
+                        <div class="col">
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-primary" onclick="saveEmailCaptureConfig()">
+                                    <i class="bi bi-check-circle"></i> Save Configuration
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="loadEmailCaptureConfig()">
+                                    <i class="bi bi-arrow-clockwise"></i> Reload
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="testEmailPatterns()">
+                                    <i class="bi bi-search"></i> Test Patterns
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Global Settings -->
+                    <div class="row mb-4">
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6><i class="bi bi-sliders"></i> Global Email Search Settings</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Search Date Range (days)</label>
+                                            <input type="number" class="form-control" id="searchDateRange" value="90" min="1" max="365">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Max Results per Provider</label>
+                                            <input type="number" class="form-control" id="maxResults" value="50" min="1" max="200">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Search Folders</label>
+                                            <input type="text" class="form-control" id="searchFolders" value="INBOX, Bills, Utilities" placeholder="INBOX, Bills">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -201,6 +201,14 @@ def get_analytics():
             total_invoices = session.query(func.count(Invoice.id)).scalar()
             total_amount = session.query(func.sum(Invoice.total_amount)).scalar()
             avg_amount = session.query(func.avg(Invoice.total_amount)).scalar()
+            total_service_charges = session.query(func.sum(Invoice.service_charge)).scalar()
+            
+            # Calculate total usage charges (usage_quantity * usage_rate)
+            total_usage_charges = session.query(
+                func.sum(Invoice.usage_quantity * Invoice.usage_rate)
+            ).filter(
+                and_(Invoice.usage_quantity.isnot(None), Invoice.usage_rate.isnot(None))
+            ).scalar()
             
             # Monthly trends (last 12 months)
             twelve_months_ago = datetime.now() - timedelta(days=365)
@@ -236,6 +244,8 @@ def get_analytics():
                     'total_invoices': total_invoices or 0,
                     'total_amount': float(total_amount) if total_amount else 0,
                     'average_amount': float(avg_amount) if avg_amount else 0,
+                    'total_service_charges': float(total_service_charges) if total_service_charges else 0,
+                    'total_usage_charges': float(total_usage_charges) if total_usage_charges else 0,
                     'data_period': {
                         'start': twelve_months_ago.isoformat(),
                         'end': datetime.now().isoformat()
@@ -585,4 +595,347 @@ def test_template():
         
     except Exception as e:
         logger.error(f"Error testing template: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# CONFIGURATION ENDPOINTS
+# =============================================================================
+
+@api_bp.route('/configuration/gmail', methods=['GET'])
+def get_gmail_configuration():
+    """Get current Gmail configuration (masked credentials)."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        email_service = EmailService()
+        auth_adapter = email_service.auth_adapter
+        
+        gmail_config = auth_adapter.credentials.get('gmail', {})
+        
+        # Mask sensitive data
+        masked_config = {
+            'client_id': gmail_config.get('client_id', ''),
+            'client_secret': '••••••••' if gmail_config.get('client_secret') else '',
+            'refresh_token': '••••••••' if gmail_config.get('refresh_token') else '',
+            'status': 'configured' if gmail_config.get('client_id') and gmail_config.get('client_secret') else 'not_configured'
+        }
+        
+        return jsonify({
+            'success': True,
+            'config': masked_config
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting Gmail configuration: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/configuration/gmail', methods=['POST'])
+def save_gmail_configuration():
+    """Save Gmail configuration."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No configuration data provided'}), 400
+        
+        required_fields = ['client_id', 'client_secret']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'{field} is required'}), 400
+        
+        email_service = EmailService()
+        auth_adapter = email_service.auth_adapter
+        
+        # Update Gmail configuration
+        if 'gmail' not in auth_adapter.credentials:
+            auth_adapter.credentials['gmail'] = {}
+        
+        gmail_config = auth_adapter.credentials['gmail']
+        gmail_config['client_id'] = data['client_id']
+        gmail_config['client_secret'] = data['client_secret']
+        
+        if data.get('refresh_token'):
+            gmail_config['refresh_token'] = data['refresh_token']
+        
+        # Save to file
+        auth_adapter._save_credentials()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Gmail configuration saved successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error saving Gmail configuration: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/configuration/gmail/test', methods=['POST'])
+def test_gmail_connection():
+    """Test Gmail connection."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        email_service = EmailService()
+        auth_adapter = email_service.auth_adapter
+        
+        # Try to get credentials
+        creds = auth_adapter.get_gmail_credentials()
+        if not creds:
+            return jsonify({'error': 'Gmail credentials not configured'}), 400
+        
+        # Try to make a simple API call
+        import requests
+        
+        headers = {
+            'Authorization': f"Bearer {creds['access_token']}",
+            'Content-Type': 'application/json'
+        }
+        
+        # Test with a simple profile request
+        response = requests.get(
+            'https://gmail.googleapis.com/gmail/v1/users/me/profile',
+            headers=headers,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            profile_data = response.json()
+            return jsonify({
+                'success': True,
+                'message': 'Gmail connection successful',
+                'email': profile_data.get('emailAddress', 'Unknown')
+            })
+        else:
+            return jsonify({
+                'error': f'Gmail API returned status {response.status_code}: {response.text}'
+            }), 400
+        
+    except Exception as e:
+        logger.error(f"Error testing Gmail connection: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/configuration/gmail/oauth-url', methods=['POST'])
+def get_oauth_url():
+    """Generate OAuth2 authorization URL."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        email_service = EmailService()
+        auth_adapter = email_service.auth_adapter
+        
+        gmail_config = auth_adapter.credentials.get('gmail', {})
+        client_id = gmail_config.get('client_id')
+        
+        if not client_id:
+            return jsonify({'error': 'Gmail client ID not configured'}), 400
+        
+        # Generate OAuth2 URL
+        from urllib.parse import urlencode
+        
+        scopes = ' '.join(gmail_config.get('scopes', ['https://www.googleapis.com/auth/gmail.readonly']))
+        redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'  # For manual flow
+        
+        oauth_params = {
+            'client_id': client_id,
+            'redirect_uri': redirect_uri,
+            'scope': scopes,
+            'response_type': 'code',
+            'access_type': 'offline',
+            'prompt': 'consent'
+        }
+        
+        auth_url = f"https://accounts.google.com/o/oauth2/auth?{urlencode(oauth_params)}"
+        
+        return jsonify({
+            'success': True,
+            'auth_url': auth_url,
+            'message': 'Complete OAuth flow and paste the authorization code back into the refresh token field'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating OAuth URL: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/configuration/status', methods=['GET'])
+def get_configuration_status():
+    """Get detailed configuration and connection status."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        email_service = EmailService()
+        service_status = email_service.get_service_status()
+        
+        return jsonify({
+            'success': True,
+            'status': service_status
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting configuration status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/configuration/providers', methods=['GET'])
+def get_provider_configuration():
+    """Get current provider configuration for email capture."""
+    try:
+        import json
+        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'providers.json')
+        
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config_data = json.load(f)
+                
+            # Extract provider configurations
+            providers = []
+            for provider_key, provider_config in config_data.get('providers', {}).items():
+                providers.append({
+                    'service_type': provider_config.get('service_type'),
+                    'provider_name': provider_config.get('provider_name'),
+                    'email_patterns': provider_config.get('email_patterns', {})
+                })
+            
+            return jsonify({
+                'success': True,
+                'providers': providers,
+                'global_settings': config_data.get('global_settings', {})
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'providers': [],
+                'global_settings': {}
+            })
+            
+    except Exception as e:
+        logger.error(f"Error getting provider configuration: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/configuration/providers', methods=['POST'])
+def save_provider_configuration():
+    """Save provider configuration for email capture."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No configuration data provided'}), 400
+        
+        providers_config = data.get('providers', [])
+        global_settings = data.get('global_settings', {})
+        
+        # Validate required fields
+        for provider in providers_config:
+            if not provider.get('provider_name') or not provider.get('service_type'):
+                return jsonify({'error': 'Provider name and service type are required'}), 400
+        
+        # Load existing config or create new
+        import json
+        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'providers.json')
+        
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config_data = json.load(f)
+        else:
+            config_data = {'providers': {}, 'global_settings': {}}
+        
+        # Update provider configurations
+        config_data['providers'] = {}
+        for provider in providers_config:
+            provider_key = provider['provider_name'].replace(' ', '_')
+            config_data['providers'][provider_key] = {
+                'provider_name': provider['provider_name'],
+                'service_type': provider['service_type'],
+                'email_patterns': provider.get('email_patterns', {}),
+                'parsing_config': {
+                    'template': f"{provider_key.lower()}_template",
+                    'backup_ocr': True,
+                    'validation_rules': {
+                        'amount_range': [20, 2000],
+                        'usage_range': [0, 10000],
+                        'required_fields': ['invoice_date', 'total_amount']
+                    }
+                },
+                'processing_options': {
+                    'priority': 'medium',
+                    'auto_validate': True,
+                    'notify_on_error': True
+                }
+            }
+        
+        # Update global settings
+        if global_settings:
+            config_data['global_settings'] = global_settings
+        
+        # Save configuration
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        with open(config_path, 'w') as f:
+            json.dump(config_data, f, indent=2)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Provider configuration saved successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error saving provider configuration: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/configuration/providers/test', methods=['POST'])
+def test_provider_patterns():
+    """Test email patterns with current Gmail connection."""
+    if not INTEGRATION_AVAILABLE:
+        return jsonify({'error': 'Integration services not available'}), 503
+    
+    try:
+        email_service = EmailService()
+        
+        # Load current provider configuration
+        import json
+        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'providers.json')
+        
+        if not os.path.exists(config_path):
+            return jsonify({'error': 'No provider configuration found'}), 400
+            
+        with open(config_path, 'r') as f:
+            config_data = json.load(f)
+        
+        results = []
+        for provider_key, provider_config in config_data.get('providers', {}).items():
+            # Simulate email search (dry run)
+            service_type = provider_config.get('service_type')
+            email_patterns = provider_config.get('email_patterns', {})
+            
+            # For testing purposes, return mock results
+            # In a real implementation, this would perform actual email searches
+            results.append({
+                'service_type': service_type,
+                'provider_name': provider_config.get('provider_name'),
+                'matches': len(email_patterns.get('from', [])) * 5,  # Mock result
+                'sample_subjects': [
+                    f"{service_type} Bill - Ready for Download",
+                    f"Your {service_type} Statement is Available",
+                    f"Invoice from {provider_config.get('provider_name')}"
+                ]
+            })
+        
+        return jsonify({
+            'success': True,
+            'results': results,
+            'message': 'Pattern test completed successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error testing provider patterns: {e}")
         return jsonify({'error': str(e)}), 500

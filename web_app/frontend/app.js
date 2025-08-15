@@ -92,6 +92,10 @@ function showSection(sectionId) {
         case 'analytics':
             loadAnalytics();
             break;
+        case 'configuration':
+            loadGmailConfiguration();
+            loadEmailCaptureConfiguration();
+            break;
     }
 }
 
@@ -166,9 +170,13 @@ function updateKPICards(overview) {
     $('#totalAmount').text('$' + overview.total_amount.toLocaleString());
     $('#avgAmount').text('$' + overview.average_amount.toLocaleString());
     
-    // Calculate this month's total (placeholder - would need actual current month data)
-    const thisMonth = overview.total_amount * 0.08; // Approximate
-    $('#thisMonth').text('$' + thisMonth.toLocaleString());
+    // Display total service charges
+    const serviceCharges = overview.total_service_charges || 0;
+    $('#totalServiceCharges').text('$' + serviceCharges.toLocaleString());
+    
+    // Display total usage charges
+    const usageCharges = overview.total_usage_charges || 0;
+    $('#totalUsageCharges').text('$' + usageCharges.toLocaleString());
 }
 
 /**
@@ -183,19 +191,29 @@ function updateRecentInvoices(invoices) {
                     <th>Provider</th>
                     <th>Service</th>
                     <th>Amount</th>
+                    <th>Service Charge</th>
+                    <th>Usage Charge</th>
                     <th>Usage</th>
                 </tr>
             </thead>
             <tbody>
-                ${invoices.map(invoice => `
-                    <tr>
-                        <td>${formatDate(invoice.invoice_date)}</td>
-                        <td><span class="text-provider">${invoice.provider_name}</span></td>
-                        <td><span class="badge service-${invoice.service_type.toLowerCase()}">${invoice.service_type}</span></td>
-                        <td class="text-currency">$${invoice.total_amount.toFixed(2)}</td>
-                        <td>${invoice.usage_quantity ? invoice.usage_quantity.toFixed(1) : 'N/A'}</td>
-                    </tr>
-                `).join('')}
+                ${invoices.map(invoice => {
+                    const usageCharge = (invoice.usage_quantity && invoice.usage_rate) 
+                        ? (parseFloat(invoice.usage_quantity) * parseFloat(invoice.usage_rate))
+                        : 0;
+                    
+                    return `
+                        <tr>
+                            <td>${formatDate(invoice.invoice_date)}</td>
+                            <td><span class="text-provider">${invoice.provider_name}</span></td>
+                            <td><span class="badge service-${invoice.service_type.toLowerCase()}">${invoice.service_type}</span></td>
+                            <td class="text-currency">$${invoice.total_amount.toFixed(2)}</td>
+                            <td class="text-currency">$${invoice.service_charge ? invoice.service_charge.toFixed(2) : '0.00'}</td>
+                            <td class="text-currency">$${usageCharge.toFixed(2)}</td>
+                            <td>${invoice.usage_quantity ? invoice.usage_quantity.toFixed(1) : 'N/A'}</td>
+                        </tr>
+                    `;
+                }).join('')}
             </tbody>
         </table>
     `;
@@ -252,6 +270,8 @@ function updateInvoicesTable(invoices) {
                     <th>Provider</th>
                     <th>Service</th>
                     <th>Amount</th>
+                    <th>Service Charge</th>
+                    <th>Usage Charge</th>
                     <th>Usage</th>
                     <th>Rate</th>
                     <th>Period</th>
@@ -259,23 +279,31 @@ function updateInvoicesTable(invoices) {
                 </tr>
             </thead>
             <tbody>
-                ${invoices.length > 0 ? invoices.map(invoice => `
+                ${invoices.length > 0 ? invoices.map(invoice => {
+                    const usageCharge = (invoice.usage_quantity && invoice.usage_rate) 
+                        ? (parseFloat(invoice.usage_quantity) * parseFloat(invoice.usage_rate))
+                        : 0;
+                    
+                    return `
+                        <tr>
+                            <td>${formatDate(invoice.invoice_date)}</td>
+                            <td><span class="text-provider">${invoice.provider_name}</span></td>
+                            <td><span class="badge service-${invoice.service_type.toLowerCase()}">${invoice.service_type}</span></td>
+                            <td class="text-currency">$${invoice.total_amount.toFixed(2)}</td>
+                            <td class="text-currency">$${invoice.service_charge ? invoice.service_charge.toFixed(2) : '0.00'}</td>
+                            <td class="text-currency">$${usageCharge.toFixed(2)}</td>
+                            <td>${invoice.usage_quantity ? invoice.usage_quantity.toFixed(1) : 'N/A'}</td>
+                            <td>${invoice.usage_rate ? '$' + invoice.usage_rate.toFixed(4) : 'N/A'}</td>
+                            <td class="small">
+                                ${invoice.billing_period_start ? formatDate(invoice.billing_period_start) : 'N/A'} -
+                                ${invoice.billing_period_end ? formatDate(invoice.billing_period_end) : 'N/A'}
+                            </td>
+                            <td><span class="badge status-${invoice.processing_status}">${invoice.processing_status}</span></td>
+                        </tr>
+                    `;
+                }).join('') : `
                     <tr>
-                        <td>${formatDate(invoice.invoice_date)}</td>
-                        <td><span class="text-provider">${invoice.provider_name}</span></td>
-                        <td><span class="badge service-${invoice.service_type.toLowerCase()}">${invoice.service_type}</span></td>
-                        <td class="text-currency">$${invoice.total_amount.toFixed(2)}</td>
-                        <td>${invoice.usage_quantity ? invoice.usage_quantity.toFixed(1) : 'N/A'}</td>
-                        <td>${invoice.usage_rate ? '$' + invoice.usage_rate.toFixed(4) : 'N/A'}</td>
-                        <td class="small">
-                            ${invoice.billing_period_start ? formatDate(invoice.billing_period_start) : 'N/A'} -
-                            ${invoice.billing_period_end ? formatDate(invoice.billing_period_end) : 'N/A'}
-                        </td>
-                        <td><span class="badge status-${invoice.processing_status}">${invoice.processing_status}</span></td>
-                    </tr>
-                `).join('') : `
-                    <tr>
-                        <td colspan="8" class="text-center py-4">
+                        <td colspan="10" class="text-center py-4">
                             <i class="bi bi-inbox fs-1 text-muted"></i>
                             <p class="mt-2 text-muted">No invoices found</p>
                         </td>
@@ -762,4 +790,412 @@ function formatDate(dateString) {
     
     const date = new Date(dateString);
     return date.toLocaleDateString(CONFIG.DATE_FORMAT.locale, CONFIG.DATE_FORMAT.options);
+}
+
+// =============================================================================
+// CONFIGURATION FUNCTIONS
+// =============================================================================
+
+/**
+ * Load Gmail configuration when configuration section is shown
+ */
+function loadGmailConfiguration() {
+    // Load current configuration
+    fetch(`${CONFIG.API_BASE_URL}/configuration/gmail`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const config = data.config;
+                $('#gmailClientId').val(config.client_id || '');
+                $('#gmailClientSecret').val(config.client_secret ? '••••••••' : '');
+                $('#gmailRefreshToken').val(config.refresh_token ? '••••••••' : '');
+                
+                updateGmailConnectionStatus(config.status);
+            }
+        })
+        .catch(error => {
+            console.error('Failed to load Gmail configuration:', error);
+            showAlert('Failed to load Gmail configuration', 'danger');
+        });
+
+    // Load connection status
+    loadConnectionStatus();
+}
+
+/**
+ * Save Gmail configuration
+ */
+function saveGmailConfig() {
+    const config = {
+        client_id: $('#gmailClientId').val().trim(),
+        client_secret: $('#gmailClientSecret').val().trim(),
+        refresh_token: $('#gmailRefreshToken').val().trim()
+    };
+
+    // Validate required fields
+    if (!config.client_id || !config.client_secret) {
+        showAlert('Please fill in Client ID and Client Secret', 'warning');
+        return;
+    }
+
+    // Show loading state
+    const saveBtn = $('button[onclick="saveGmailConfig()"]');
+    const originalText = saveBtn.html();
+    saveBtn.html('<i class="bi bi-hourglass-split"></i> Saving...').prop('disabled', true);
+
+    fetch(`${CONFIG.API_BASE_URL}/configuration/gmail`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(config)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Gmail configuration saved successfully', 'success');
+            updateGmailConnectionStatus('configured');
+            loadConnectionStatus();
+        } else {
+            showAlert(`Failed to save configuration: ${data.error}`, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Failed to save Gmail configuration:', error);
+        showAlert('Failed to save Gmail configuration', 'danger');
+    })
+    .finally(() => {
+        saveBtn.html(originalText).prop('disabled', false);
+    });
+}
+
+/**
+ * Test Gmail connection
+ */
+function testGmailConnection() {
+    const testBtn = $('button[onclick="testGmailConnection()"]');
+    const originalText = testBtn.html();
+    testBtn.html('<i class="bi bi-hourglass-split"></i> Testing...').prop('disabled', true);
+
+    fetch(`${CONFIG.API_BASE_URL}/configuration/gmail/test`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Gmail connection test successful', 'success');
+            updateGmailConnectionStatus('connected');
+            loadConnectionStatus();
+        } else {
+            showAlert(`Connection test failed: ${data.error}`, 'danger');
+            updateGmailConnectionStatus('failed');
+        }
+    })
+    .catch(error => {
+        console.error('Gmail connection test failed:', error);
+        showAlert('Gmail connection test failed', 'danger');
+        updateGmailConnectionStatus('failed');
+    })
+    .finally(() => {
+        testBtn.html(originalText).prop('disabled', false);
+    });
+}
+
+/**
+ * Initiate OAuth2 flow
+ */
+function initiateOAuth() {
+    const oauthBtn = $('button[onclick="initiateOAuth()"]');
+    const originalText = oauthBtn.html();
+    oauthBtn.html('<i class="bi bi-hourglass-split"></i> Starting...').prop('disabled', true);
+
+    fetch(`${CONFIG.API_BASE_URL}/configuration/gmail/oauth-url`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.auth_url) {
+            // Open OAuth URL in new window
+            const authWindow = window.open(data.auth_url, 'gmail_oauth', 'width=600,height=400');
+            
+            showAlert('OAuth2 flow initiated. Complete authentication in the popup window.', 'info');
+            
+            // Monitor for window closure (user completed OAuth)
+            const checkClosed = setInterval(() => {
+                if (authWindow.closed) {
+                    clearInterval(checkClosed);
+                    setTimeout(() => {
+                        loadGmailConfiguration();
+                        showAlert('Please test the connection to verify OAuth2 completion', 'info');
+                    }, 1000);
+                }
+            }, 1000);
+        } else {
+            showAlert(`Failed to start OAuth2 flow: ${data.error}`, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Failed to start OAuth2 flow:', error);
+        showAlert('Failed to start OAuth2 flow', 'danger');
+    })
+    .finally(() => {
+        oauthBtn.html(originalText).prop('disabled', false);
+    });
+}
+
+/**
+ * Update Gmail connection status badge
+ */
+function updateGmailConnectionStatus(status) {
+    const statusBadge = $('#gmailConnectionStatus');
+    
+    switch (status) {
+        case 'connected':
+            statusBadge.removeClass().addClass('badge bg-success').text('Connected');
+            break;
+        case 'configured':
+            statusBadge.removeClass().addClass('badge bg-info').text('Configured');
+            break;
+        case 'failed':
+            statusBadge.removeClass().addClass('badge bg-danger').text('Failed');
+            break;
+        case 'not_configured':
+            statusBadge.removeClass().addClass('badge bg-warning').text('Not Configured');
+            break;
+        default:
+            statusBadge.removeClass().addClass('badge bg-secondary').text('Unknown');
+    }
+}
+
+/**
+ * Load detailed connection status
+ */
+function loadConnectionStatus() {
+    fetch(`${CONFIG.API_BASE_URL}/configuration/status`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayConnectionStatus(data.status);
+            }
+        })
+        .catch(error => {
+            console.error('Failed to load connection status:', error);
+            $('#connectionStatusDetails').html('<p class="text-danger">Failed to load status</p>');
+        });
+}
+
+/**
+ * Display connection status details
+ */
+function displayConnectionStatus(status) {
+    const statusHtml = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Authentication Status</h6>
+                <ul class="list-unstyled">
+                    <li><i class="bi bi-circle-fill text-${status.authentication.gmail ? 'success' : 'danger'}"></i> Gmail: ${status.authentication.gmail ? 'Connected' : 'Not Connected'}</li>
+                    <li><i class="bi bi-circle-fill text-${status.authentication.outlook ? 'success' : 'secondary'}"></i> Outlook: ${status.authentication.outlook ? 'Connected' : 'Not Configured'}</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6>Recent Activity</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Last Fetch:</strong> ${status.recent_activity.last_fetch || 'Never'}</li>
+                    <li><strong>Total Processed:</strong> ${status.recent_activity.total_processed || 0}</li>
+                    <li><strong>Success Rate:</strong> ${status.recent_activity.successful || 0}/${status.recent_activity.total_processed || 0}</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col">
+                <h6>Storage Information</h6>
+                <p><strong>Local Files:</strong> ${status.storage.local_files || 0} PDFs stored locally</p>
+                <p><strong>AWS Mode:</strong> ${status.storage.aws_mode ? 'Enabled' : 'Disabled'}</p>
+            </div>
+        </div>
+    `;
+    
+    $('#connectionStatusDetails').html(statusHtml);
+}
+
+// =============================================================================
+// EMAIL CAPTURE CONFIGURATION FUNCTIONS
+// =============================================================================
+
+/**
+ * Load email capture configuration when tab is shown
+ */
+function loadEmailCaptureConfiguration() {
+    // Load current provider configurations
+    fetch(`${CONFIG.API_BASE_URL}/configuration/providers`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const providers = data.providers;
+                
+                // Populate electricity provider
+                const elecProvider = providers.find(p => p.service_type === 'Electricity');
+                if (elecProvider) {
+                    $('#elecProviderName').val(elecProvider.provider_name || '');
+                    $('#elecEmailAddresses').val(elecProvider.email_patterns?.from?.join('\n') || '');
+                    $('#elecSubjectKeywords').val(elecProvider.email_patterns?.subject_keywords?.join(', ') || '');
+                    $('#elecExcludeKeywords').val(elecProvider.email_patterns?.exclude_keywords?.join(', ') || '');
+                }
+                
+                // Populate gas provider
+                const gasProvider = providers.find(p => p.service_type === 'Gas');
+                if (gasProvider) {
+                    $('#gasProviderName').val(gasProvider.provider_name || '');
+                    $('#gasEmailAddresses').val(gasProvider.email_patterns?.from?.join('\n') || '');
+                    $('#gasSubjectKeywords').val(gasProvider.email_patterns?.subject_keywords?.join(', ') || '');
+                    $('#gasExcludeKeywords').val(gasProvider.email_patterns?.exclude_keywords?.join(', ') || '');
+                }
+                
+                // Populate water provider
+                const waterProvider = providers.find(p => p.service_type === 'Water');
+                if (waterProvider) {
+                    $('#waterProviderName').val(waterProvider.provider_name || '');
+                    $('#waterEmailAddresses').val(waterProvider.email_patterns?.from?.join('\n') || '');
+                    $('#waterSubjectKeywords').val(waterProvider.email_patterns?.subject_keywords?.join(', ') || '');
+                    $('#waterExcludeKeywords').val(waterProvider.email_patterns?.exclude_keywords?.join(', ') || '');
+                }
+                
+                // Load global settings
+                if (data.global_settings) {
+                    const searchConfig = data.global_settings.search_configuration || {};
+                    $('#searchDateRange').val(searchConfig.date_range_days || 90);
+                    $('#maxResults').val(searchConfig.max_results_per_provider || 50);
+                    $('#searchFolders').val(searchConfig.search_in_folders?.join(', ') || 'INBOX, Bills, Utilities');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Failed to load email capture configuration:', error);
+            showAlert('Failed to load email capture configuration', 'danger');
+        });
+}
+
+/**
+ * Save email capture configuration
+ */
+function saveEmailCaptureConfig() {
+    const config = {
+        providers: [
+            {
+                service_type: 'Electricity',
+                provider_name: $('#elecProviderName').val().trim(),
+                email_patterns: {
+                    from: $('#elecEmailAddresses').val().split('\n').map(email => email.trim()).filter(email => email),
+                    subject_keywords: $('#elecSubjectKeywords').val().split(',').map(keyword => keyword.trim()).filter(keyword => keyword),
+                    exclude_keywords: $('#elecExcludeKeywords').val().split(',').map(keyword => keyword.trim()).filter(keyword => keyword),
+                    attachment_types: ['.pdf']
+                }
+            },
+            {
+                service_type: 'Gas',
+                provider_name: $('#gasProviderName').val().trim(),
+                email_patterns: {
+                    from: $('#gasEmailAddresses').val().split('\n').map(email => email.trim()).filter(email => email),
+                    subject_keywords: $('#gasSubjectKeywords').val().split(',').map(keyword => keyword.trim()).filter(keyword => keyword),
+                    exclude_keywords: $('#gasExcludeKeywords').val().split(',').map(keyword => keyword.trim()).filter(keyword => keyword),
+                    attachment_types: ['.pdf']
+                }
+            },
+            {
+                service_type: 'Water',
+                provider_name: $('#waterProviderName').val().trim(),
+                email_patterns: {
+                    from: $('#waterEmailAddresses').val().split('\n').map(email => email.trim()).filter(email => email),
+                    subject_keywords: $('#waterSubjectKeywords').val().split(',').map(keyword => keyword.trim()).filter(keyword => keyword),
+                    exclude_keywords: $('#waterExcludeKeywords').val().split(',').map(keyword => keyword.trim()).filter(keyword => keyword),
+                    attachment_types: ['.pdf']
+                }
+            }
+        ],
+        global_settings: {
+            search_configuration: {
+                date_range_days: parseInt($('#searchDateRange').val()) || 90,
+                max_results_per_provider: parseInt($('#maxResults').val()) || 50,
+                search_in_folders: $('#searchFolders').val().split(',').map(folder => folder.trim()).filter(folder => folder)
+            }
+        }
+    };
+
+    // Validate required fields
+    for (const provider of config.providers) {
+        if (!provider.provider_name) {
+            showAlert(`Please fill in the provider name for ${provider.service_type}`, 'warning');
+            return;
+        }
+        if (provider.email_patterns.from.length === 0) {
+            showAlert(`Please add at least one email address for ${provider.service_type}`, 'warning');
+            return;
+        }
+    }
+
+    // Show loading state
+    const saveBtn = $('button[onclick="saveEmailCaptureConfig()"]');
+    const originalText = saveBtn.html();
+    saveBtn.html('<i class="bi bi-hourglass-split"></i> Saving...').prop('disabled', true);
+
+    fetch(`${CONFIG.API_BASE_URL}/configuration/providers`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(config)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Email capture configuration saved successfully', 'success');
+        } else {
+            showAlert(`Failed to save configuration: ${data.error}`, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Failed to save email capture configuration:', error);
+        showAlert('Failed to save email capture configuration', 'danger');
+    })
+    .finally(() => {
+        saveBtn.html(originalText).prop('disabled', false);
+    });
+}
+
+/**
+ * Test email patterns by performing a dry run search
+ */
+function testEmailPatterns() {
+    const testBtn = $('button[onclick="testEmailPatterns()"]');
+    const originalText = testBtn.html();
+    testBtn.html('<i class="bi bi-hourglass-split"></i> Testing...').prop('disabled', true);
+
+    fetch(`${CONFIG.API_BASE_URL}/configuration/providers/test`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const results = data.results;
+            let message = 'Email pattern test results:\n\n';
+            
+            for (const result of results) {
+                message += `${result.service_type}: ${result.matches} potential matches found\n`;
+                if (result.sample_subjects) {
+                    message += `  Sample subjects: ${result.sample_subjects.join(', ')}\n`;
+                }
+            }
+            
+            showAlert(message, 'info', 10000); // Show for 10 seconds
+        } else {
+            showAlert(`Pattern test failed: ${data.error}`, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Email pattern test failed:', error);
+        showAlert('Email pattern test failed', 'danger');
+    })
+    .finally(() => {
+        testBtn.html(originalText).prop('disabled', false);
+    });
 }
